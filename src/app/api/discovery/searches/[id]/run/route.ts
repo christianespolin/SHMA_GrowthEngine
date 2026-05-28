@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { callClaude } from '@/lib/ai/client'
 import { buildDiscoveryPrompt } from '@/lib/ai/prompts'
 
+// Allow up to 5 minutes — AI generation for 25+ companies takes time
+export const maxDuration = 300
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseJsonArray(text: string): any[] | null {
   // Try direct parse first
@@ -68,13 +71,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     let aiResponse = null
 
     try {
-      aiResponse = await callClaude(prompt, undefined, 8192)
+      aiResponse = await callClaude(prompt, undefined, 16000)
       suggestions = parseJsonArray(aiResponse.content)
 
       // Retry once with repair prompt if parse failed
       if (!suggestions) {
         const repairPrompt = `The following text is a JSON array that failed to parse. Fix it and return ONLY valid JSON:\n\n${aiResponse.content}`
-        const repairResponse = await callClaude(repairPrompt, undefined, 8192)
+        const repairResponse = await callClaude(repairPrompt, undefined, 16000)
         suggestions = parseJsonArray(repairResponse.content)
       }
     } catch (aiError) {
