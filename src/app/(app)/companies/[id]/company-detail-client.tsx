@@ -642,11 +642,30 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate }: {
   onGenerate: (channel: string) => void
 }) {
   const [copied, setCopied] = useState<string | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [localOutreach, setLocalOutreach] = useState<Record<string, any>[]>(outreach)
+  const [marking, setMarking] = useState<string | null>(null)
 
   const copy = async (text: string, key: string) => {
     await navigator.clipboard.writeText(text)
     setCopied(key)
     setTimeout(() => setCopied(null), 2000)
+  }
+
+  const markSent = async (id: string) => {
+    setMarking(id)
+    try {
+      const res = await fetch(`/api/outreach/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'sent' }),
+      })
+      if (res.ok) {
+        setLocalOutreach(prev => prev.map(m => m.id === id ? { ...m, status: 'sent' } : m))
+      }
+    } finally {
+      setMarking(null)
+    }
   }
 
   return (
@@ -703,15 +722,30 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate }: {
         </div>
       )}
 
-      {outreach.length > 0 && (
+      {localOutreach.length > 0 && (
         <div>
           <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Saved Messages</h3>
           <div className="space-y-2">
-            {outreach.map(msg => (
+            {localOutreach.map(msg => (
               <div key={String(msg.id)} className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-1">
-                  <Badge variant={msg.status === 'sent' ? 'success' : 'muted'}>{String(msg.message_type)}</Badge>
-                  <span className="text-xs text-slate-600">{formatDate(msg.created_at as string)}</span>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={msg.status === 'sent' ? 'success' : 'muted'}>{String(msg.message_type)}</Badge>
+                    {msg.status === 'sent' && <span className="text-xs text-emerald-500">✓ Sent</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-600">{formatDate(msg.created_at as string)}</span>
+                    {msg.status !== 'sent' && (
+                      <button
+                        onClick={() => markSent(String(msg.id))}
+                        disabled={marking === String(msg.id)}
+                        className="text-xs text-cyan-500 hover:text-cyan-300 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <Send className="h-3 w-3" />
+                        {marking === String(msg.id) ? 'Saving…' : 'Mark Sent'}
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {msg.subject && <div className="text-xs text-slate-400 mb-1 font-medium">{String(msg.subject)}</div>}
                 <p className="text-xs text-slate-500 line-clamp-2">{String(msg.content)}</p>

@@ -4,13 +4,15 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Building2, Kanban, BarChart3,
-  Upload, Settings, ChevronRight, Zap
+  Upload, Settings, ChevronRight, Zap, Users, CalendarDays
 } from 'lucide-react'
 
 const nav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/pipeline', label: 'Pipeline', icon: Kanban },
   { href: '/companies', label: 'Companies', icon: Building2 },
+  { href: '/contacts', label: 'Contacts', icon: Users },
+  { href: '/meetings', label: 'Meetings', icon: CalendarDays },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
   { href: '/import', label: 'Import', icon: Upload },
   { href: '/settings', label: 'Settings', icon: Settings },

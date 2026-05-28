@@ -11,7 +11,7 @@ import { Modal } from '@/components/ui/modal'
 import { formatDate, isOverdue, isStale, cn } from '@/lib/utils'
 import {
   Plus, Search, Filter, ExternalLink, AlertTriangle, Clock,
-  Building2, Globe, ChevronRight
+  Building2, Globe, ChevronRight, Sparkles
 } from 'lucide-react'
 
 interface Company {
@@ -46,7 +46,35 @@ export function CompaniesClient({ companies, filters }: { companies: Company[]; 
   const [priorityFilter, setPriorityFilter] = useState(filters.priority || '')
   const [segmentFilter, setSegmentFilter] = useState(filters.segment || '')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [bulkScoring, setBulkScoring] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
   const router = useRouter()
+
+  const unscored = companies.filter(c => c.shma_fit_score === null && !['Disqualified', 'Nurture'].includes(c.stage))
+
+  const runBulkScore = async () => {
+    if (unscored.length === 0) return
+    setBulkScoring(true)
+    setBulkProgress({ done: 0, total: unscored.length })
+    for (let i = 0; i < unscored.length; i++) {
+      const c = unscored[i]
+      try {
+        await fetch('/api/ai/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company_id: c.id,
+            company_name: c.name,
+            segment: c.segment,
+          }),
+        })
+      } catch { /* continue on error */ }
+      setBulkProgress({ done: i + 1, total: unscored.length })
+    }
+    setBulkScoring(false)
+    setBulkProgress(null)
+    router.refresh()
+  }
 
   const filtered = companies.filter(c => {
     if (stageFilter && c.stage !== stageFilter) return false
@@ -122,6 +150,15 @@ export function CompaniesClient({ companies, filters }: { companies: Company[]; 
         <div className="flex-1" />
 
         <span className="text-xs text-slate-600">{filtered.length} companies</span>
+
+        {unscored.length > 0 && (
+          <Button size="sm" variant="secondary" onClick={runBulkScore} disabled={bulkScoring}>
+            <Sparkles className="h-3.5 w-3.5" />
+            {bulkScoring && bulkProgress
+              ? `Scoring ${bulkProgress.done}/${bulkProgress.total}…`
+              : `Score unscored (${unscored.length})`}
+          </Button>
+        )}
 
         <Button size="sm" variant="primary" onClick={() => setShowAddModal(true)}>
           <Plus className="h-3.5 w-3.5" /> Add company

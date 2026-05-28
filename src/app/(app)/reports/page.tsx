@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { PIPELINE_STAGES, SEGMENTS } from '@/lib/types'
 import { isStale } from '@/lib/utils'
+import { PipelineAnalysis } from './pipeline-analysis'
 
 export default async function ReportsPage() {
   const supabase = await createClient()
@@ -192,6 +193,9 @@ export default async function ReportsPage() {
             </div>
           </div>
         </div>
+
+        {/* AI Pipeline Analysis */}
+        <PipelineAnalysis />
       </div>
     </>
   )
