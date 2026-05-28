@@ -27,17 +27,20 @@ export interface AIResponse {
 export async function callClaude(
   prompt: string,
   systemPrompt?: string,
-  maxTokens = 4096
+  maxTokens = 4096,
+  timeoutMs?: number
 ): Promise<AIResponse> {
   const client = getAnthropicClient()
   const model = getModel()
+
+  const requestOptions = timeoutMs ? { timeout: timeoutMs } : {}
 
   const message = await client.messages.create({
     model,
     max_tokens: maxTokens,
     system: systemPrompt || 'You are a senior business analyst at SH Management (SHMA), specializing in servitization and As-a-Service business model transformation for asset-heavy B2B companies.',
     messages: [{ role: 'user', content: prompt }],
-  })
+  }, requestOptions)
 
   const content = message.content
     .filter(block => block.type === 'text')

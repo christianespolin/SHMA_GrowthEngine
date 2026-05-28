@@ -110,7 +110,7 @@ export function DiscoveryFormClient() {
   const [searchName, setSearchName] = useState('')
   const [mode, setMode] = useState<'generate' | 'enrich'>('generate')
   const [searchDepth, setSearchDepth] = useState('standard')
-  const [numberRequested, setNumberRequested] = useState(25)
+  const [numberRequested, setNumberRequested] = useState(10)
   const [criteria, setCriteria] = useState<DiscoveryCriteria>(defaultCriteria)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -342,9 +342,9 @@ export function DiscoveryFormClient() {
                   <input
                     type="number"
                     min={1}
-                    max={50}
+                    max={15}
                     value={numberRequested}
-                    onChange={e => setNumberRequested(Number(e.target.value))}
+                    onChange={e => setNumberRequested(Math.min(15, Number(e.target.value)))}
                     className="w-full bg-slate-700/50 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 transition-colors duration-150"
                     disabled={mode === 'enrich'}
                   />

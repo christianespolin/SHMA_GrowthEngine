@@ -73,13 +73,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     let aiResponse = null
 
     try {
-      aiResponse = await callClaude(prompt, undefined, 16000)
+      // 4-minute timeout — gives Claude plenty of time while leaving headroom
+      // before Vercel's 5-minute maxDuration kills the function
+      const AI_TIMEOUT_MS = 240_000
+      aiResponse = await callClaude(prompt, undefined, 8192, AI_TIMEOUT_MS)
       suggestions = parseJsonArray(aiResponse.content)
 
       // Retry once with repair prompt if parse failed
       if (!suggestions) {
         const repairPrompt = `The following text is a JSON array that failed to parse. Fix it and return ONLY valid JSON:\n\n${aiResponse.content}`
-        const repairResponse = await callClaude(repairPrompt, undefined, 16000)
+        const repairResponse = await callClaude(repairPrompt, undefined, 8192, AI_TIMEOUT_MS)
         suggestions = parseJsonArray(repairResponse.content)
       }
     } catch (aiError) {
