@@ -305,3 +305,132 @@ Provide a weekly pipeline analysis:
 
 Be direct and action-oriented. This is for internal use by the SHMA team.`
 }
+
+export function buildDiscoveryPrompt(params: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  criteria: any
+  number_requested: number
+  search_depth: string
+  mode: string
+  existing_companies: string[]
+}): string {
+  const c = params.criteria
+  const criteriaText = `
+SEARCH CRITERIA:
+Mode: ${params.mode === 'enrich' ? 'Enrich and score a provided company list' : 'Generate new company suggestions'}
+Industry/Segments: ${c.segments?.join(', ') || 'Any'}
+Countries: ${c.countries?.join(', ') || 'Any'}
+Region: ${c.region || 'Any'}
+Revenue range: ${[c.min_revenue, c.max_revenue].filter(Boolean).join(' – ') || 'Not specified'}
+Employee range: ${[c.min_employees, c.max_employees].filter(Boolean).join(' – ') || 'Not specified'}
+Size notes: ${c.size_notes || 'None'}
+Ownership types: ${c.ownership_types?.join(', ') || 'Any'}
+Strategic triggers: ${c.strategic_triggers?.join(', ') || 'Any'}
+
+MINIMUM SCORE THRESHOLDS (1–5):
+Asset intensity: ≥${c.asset_intensity_min || 1}
+Technical complexity: ≥${c.technical_complexity_min || 1}
+Customer upfront investment: ≥${c.customer_upfront_investment_min || 1}
+Service/support potential: ≥${c.service_support_potential_min || 1}
+Software/data/monitoring potential: ≥${c.software_data_monitoring_min || 1}
+Standardization potential: ≥${c.standardization_potential_min || 1}
+Residual value/redeployment potential: ≥${c.residual_value_min || 1}
+
+OPEN CRITERIA:
+${c.open_criteria || 'None'}
+
+SEED COMPANIES / EXAMPLES TO USE AS REFERENCE:
+${c.seed_companies || 'None provided'}
+
+COMPANIES TO AVOID (negative examples):
+${c.companies_to_avoid || 'None specified'}
+
+${params.mode === 'enrich' && c.pasted_company_list ? `COMPANY LIST TO ENRICH:\n${c.pasted_company_list}` : ''}
+
+EXISTING PIPELINE COMPANIES (avoid suggesting these):
+${params.existing_companies.length > 0 ? params.existing_companies.join(', ') : 'None'}
+
+REQUEST: ${params.mode === 'enrich' ? `Score and rank the provided company list` : `Generate ${params.number_requested} candidate companies`}
+Search depth: ${params.search_depth}
+`
+
+  return `You are an expert B2B servitization strategy analyst working for SH Management / SHMA.
+
+SHMA helps asset-heavy B2B companies move from CapEx/project/equipment sales into scalable As-a-Service, managed service, subscription, pay-per-use, performance-based or outcome-based models.
+
+SHMA SWEET SPOT — Prioritize companies with:
+- Asset-heavy or equipment-heavy solutions
+- High customer upfront investment (CapEx barrier)
+- Technical complexity requiring expertise
+- Service, support, maintenance or lifecycle potential
+- Software, data, monitoring, IoT or optimization potential
+- Standardizable solutions (for scaling)
+- Residual value or redeployment potential
+- Growth ambition or recurring revenue desire
+- Strategic pressure from board, PE owner, customers or competition
+
+DISQUALIFIERS — Avoid companies that are:
+- Pure consulting firms or hourly service businesses
+- Pure software firms unless software directly controls physical assets
+- Very small startups without significant installed base or customer commitment
+- Businesses where only simple leasing is needed (no servitization transformation)
+- Companies without clear decision-maker access
+
+${criteriaText}
+
+IMPORTANT INSTRUCTIONS:
+1. Do NOT suggest companies simply because they are in the right industry. Explain the specific servitization logic.
+2. Be specific about the possible As-a-Service concept (e.g., "Equipment-as-a-Service where customers pay per scan instead of buying the scanner" NOT just "XaaS model").
+3. Clearly distinguish: KNOWN INFO (from training data / user input) vs AI HYPOTHESES (reasonable but unverified) vs MISSING INFO (gaps to validate).
+4. Do NOT invent specific revenue figures, ownership structures or executive names unless they are very well-known public facts.
+5. Confidence level should reflect how well you know this company and how well-evidenced the servitization thesis is.
+6. Be strict on scores. A score of 5 should be genuinely exceptional. Most companies should score 3–4 on most criteria.
+
+Return a JSON array of exactly ${params.mode === 'enrich' ? 'all provided' : params.number_requested} company suggestions. Each entry must strictly follow this schema:
+
+{
+  "company_name": "string",
+  "website": "string or null",
+  "country": "string or null",
+  "region": "string or null",
+  "segment": "string",
+  "subsegment": "string or null",
+  "description": "2-3 sentence description",
+  "what_they_sell": "string",
+  "why_they_fit_shma": "string — specific servitization rationale",
+  "possible_as_a_service_concept": "string — specific XaaS concept, not generic",
+  "customer_capex_barrier": "string — describe the upfront cost or complexity faced by customers",
+  "service_support_potential": "string",
+  "software_data_monitoring_potential": "string",
+  "financing_logic": "string — how financing or risk-sharing could work",
+  "strategic_trigger": "string — why now is the right time",
+  "suggested_decision_makers": ["string array of role titles to target"],
+  "outreach_angle": "string — specific first message angle for SHMA",
+  "scores": {
+    "asset_intensity": 1-5,
+    "customer_upfront_investment": 1-5,
+    "technical_complexity": 1-5,
+    "service_support_potential": 1-5,
+    "software_data_monitoring_potential": 1-5,
+    "standardization_potential": 1-5,
+    "residual_value_redeployment_potential": 1-5,
+    "recurring_revenue_potential": 1-5,
+    "strategic_trigger_strength": 1-5,
+    "decision_maker_accessibility": 1-5,
+    "commercial_value_to_shma": 1-5
+  },
+  "shma_fit_score": 1-5,
+  "opportunity_score": 1-5,
+  "confidence_score": 1-5,
+  "overall_priority": "A-priority" | "B-priority" | "C-priority" | "Nurture" | "Needs validation" | "Disqualified",
+  "confidence_level": "High" | "Medium" | "Low",
+  "known_information": ["array of facts from training data or user input"],
+  "ai_hypotheses": ["array of reasonable but unverified assumptions"],
+  "missing_information": ["array of gaps that need validation"],
+  "validation_tasks": ["array of specific things the outreach team should verify before contacting"],
+  "ai_rationale": "string — 2-3 sentence overall assessment",
+  "recommendation": "string — concrete recommended next action for SHMA"
+}
+
+Return ONLY a valid JSON array. No markdown, no explanation, no prefix text. Start directly with [ and end with ].`
+}

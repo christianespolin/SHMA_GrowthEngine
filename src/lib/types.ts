@@ -225,3 +225,131 @@ export interface DashboardStats {
   no_next_action: number
   overdue_next_action: number
 }
+
+// ============================================================
+// DISCOVERY TYPES
+// ============================================================
+
+export interface DiscoveryCriteria {
+  segments: string[]
+  countries: string[]
+  region: string
+  min_revenue: string
+  max_revenue: string
+  min_employees: string
+  max_employees: string
+  size_notes: string
+  ownership_types: string[]
+  strategic_triggers: string[]
+  asset_intensity_min: number
+  technical_complexity_min: number
+  customer_upfront_investment_min: number
+  service_support_potential_min: number
+  software_data_monitoring_min: number
+  standardization_potential_min: number
+  residual_value_min: number
+  open_criteria: string
+  seed_companies: string
+  companies_to_avoid: string
+  pasted_company_list: string
+}
+
+export interface DiscoveryScores {
+  asset_intensity: number
+  customer_upfront_investment: number
+  technical_complexity: number
+  service_support_potential: number
+  software_data_monitoring_potential: number
+  standardization_potential: number
+  residual_value_redeployment_potential: number
+  recurring_revenue_potential: number
+  strategic_trigger_strength: number
+  decision_maker_accessibility: number
+  commercial_value_to_shma: number
+}
+
+export interface DiscoverySuggestion {
+  company_name: string
+  website?: string | null
+  country?: string | null
+  region?: string | null
+  segment: string
+  subsegment?: string | null
+  description: string
+  what_they_sell: string
+  why_they_fit_shma: string
+  possible_as_a_service_concept: string
+  customer_capex_barrier: string
+  service_support_potential: string
+  software_data_monitoring_potential: string
+  financing_logic: string
+  strategic_trigger: string
+  suggested_decision_makers: string[]
+  outreach_angle: string
+  scores: DiscoveryScores
+  shma_fit_score: number
+  opportunity_score: number
+  confidence_score: number
+  overall_priority: 'A-priority' | 'B-priority' | 'C-priority' | 'Nurture' | 'Needs validation' | 'Disqualified'
+  confidence_level: 'High' | 'Medium' | 'Low'
+  known_information: string[]
+  ai_hypotheses: string[]
+  missing_information: string[]
+  validation_tasks: string[]
+  ai_rationale: string
+  recommendation: string
+}
+
+export type DiscoveryStatus = 'draft' | 'running' | 'completed' | 'failed' | 'archived'
+export type SuggestionStatus = 'suggested' | 'accepted' | 'rejected' | 'saved_for_later' | 'needs_validation' | 'converted_to_lead'
+
+export const DISCOVERY_SEGMENTS = [
+  'Industrial technology and machinery',
+  'Warehouse automation and intralogistics',
+  'Robotics and automation',
+  'Maritime, offshore and subsea',
+  'Energy, charging, HVAC and building technology',
+  'Medtech and labtech',
+  'AV, control rooms and workplace technology',
+  'PE-owned B2B companies',
+  'Other',
+] as const
+
+export const OWNERSHIP_TYPES = [
+  'Founder-owned',
+  'Family-owned',
+  'PE-owned',
+  'Investor-backed',
+  'Listed',
+  'Corporate-owned',
+  'Unknown',
+  'Any',
+] as const
+
+export const STRATEGIC_TRIGGERS = [
+  'Wants recurring revenue',
+  'Needs growth',
+  'Margin pressure',
+  'Customer CapEx friction',
+  'Complex sales cycles',
+  'Strong installed base',
+  'Service revenue opportunity',
+  'Financing could unlock sales',
+  'Needs differentiation',
+  'International expansion',
+  'Board / PE value creation pressure',
+  'Other',
+] as const
+
+export const REJECTION_REASONS = [
+  'Not asset-heavy enough',
+  'Too small',
+  'Wrong industry',
+  'Pure software',
+  'Pure consulting',
+  'Too little service potential',
+  'Already known / duplicate',
+  'Weak SHMA fit',
+  'No strategic trigger',
+  'Other',
+] as const
