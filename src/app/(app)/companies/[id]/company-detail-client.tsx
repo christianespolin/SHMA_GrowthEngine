@@ -7,7 +7,8 @@ import { Modal } from '@/components/ui/modal'
 import { ScoreBar, ScoreBadge, PriorityBadge } from '@/components/ui/score-display'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatDateRelative, cn } from '@/lib/utils'
-import { PIPELINE_STAGES, SEGMENTS, CONTACT_ROLES, NEXT_ACTION_TYPES } from '@/lib/types'
+import { PIPELINE_STAGES, SEGMENTS, NEXT_ACTION_TYPES } from '@/lib/types'
+import { ContactsTabClient } from './contacts-tab-client'
 import {
   Sparkles, Building2, Globe, MapPin, User, Mail, Phone, Link2,
   Calendar, FileText, MessageSquare, Activity, ChevronDown, Edit3,
@@ -29,20 +30,20 @@ const SCORE_LABELS: Record<string, string> = {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function CompanyDetailClient({ company, contacts, brief, outreach, meetings, activity }: {
+export function CompanyDetailClient({ company, contacts, brief, outreach, meetings, activity, latestRun }: {
   company: Record<string, any>
   contacts: Record<string, any>[]
   brief: Record<string, any> | null
   outreach: Record<string, any>[]
   meetings: Record<string, any>[]
   activity: Record<string, any>[]
+  latestRun?: Record<string, any> | null
 }) {
   const [tab, setTab] = useState<'overview' | 'fit' | 'research' | 'contacts' | 'outreach' | 'meetings' | 'activity'>('overview')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState<string | null>(null)
   const [aiResult, setAiResult] = useState<Record<string, string> | null>(null)
-  const [showContactModal, setShowContactModal] = useState(false)
   const [showMeetingModal, setShowMeetingModal] = useState(false)
   const [showOutreachModal, setShowOutreachModal] = useState(false)
   const [loggingOutreach, setLoggingOutreach] = useState(false)
@@ -155,23 +156,6 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
     }
   }
 
-  const addContact = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const form = new FormData(e.currentTarget)
-    const data = Object.fromEntries(form.entries())
-    const res = await fetch('/api/contacts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...data, company_id: localCompany.id }),
-    })
-    if (res.ok) {
-      const newContact = await res.json()
-      setLocalContacts(prev => [...prev, newContact])
-      setShowContactModal(false)
-      router.refresh()
-    }
-  }
-
   const logOutreach = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
@@ -221,7 +205,10 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
     { id: 'overview', label: 'Overview' },
     { id: 'fit', label: 'SHMA Fit' },
     { id: 'research', label: 'AI Research' },
-    { id: 'contacts', label: `Contacts (${localContacts.length})` },
+    {
+      id: 'contacts',
+      label: `Contacts (${localContacts.length})${localCompany.decision_maker_identified ? ' ●' : ''}`,
+    },
     { id: 'outreach', label: `Outreach (${outreach.length})` },
     { id: 'meetings', label: `Meetings (${meetings.length})` },
     { id: 'activity', label: 'Activity' },
@@ -303,7 +290,13 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
           <ResearchTab brief={localBrief} loading={aiLoading === 'research'} onGenerate={() => runAI('research')} />
         )}
         {tab === 'contacts' && (
-          <ContactsTab contacts={localContacts} onAdd={() => setShowContactModal(true)} />
+          <ContactsTabClient
+            companyId={String(localCompany.id)}
+            company={localCompany}
+            initialContacts={localContacts}
+            initialLatestRun={latestRun || null}
+            brief={localBrief}
+          />
         )}
         {tab === 'outreach' && (
           <OutreachTab
@@ -328,21 +321,6 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
       </div>
 
       {/* Modals */}
-      <Modal open={showContactModal} onClose={() => setShowContactModal(false)} title="Add Contact" size="md">
-        <form onSubmit={addContact} className="p-5 space-y-4">
-          <Input name="name" label="Full Name" placeholder="Kevin Dieck" required />
-          <div className="grid grid-cols-2 gap-4">
-            <Select name="contact_type" label="Role Type" placeholder="Select role" options={CONTACT_ROLES.map(r => ({ value: r, label: r }))} />
-            <Input name="role" label="Job Title" placeholder="CFO" />
-          </div>
-          <Input name="email" label="Email" placeholder="kevin@company.com" type="email" />
-          <Input name="linkedin_url" label="LinkedIn URL" placeholder="https://linkedin.com/in/..." />
-          <Input name="phone" label="Phone" placeholder="+47 999 00 000" />
-          <Textarea name="notes" label="Notes" placeholder="Met at conference, warm contact…" />
-          <Button type="submit" variant="primary" className="w-full">Add Contact</Button>
-        </form>
-      </Modal>
-
       <Modal open={showMeetingModal} onClose={() => setShowMeetingModal(false)} title="Log Meeting" size="md">
         <form onSubmit={addMeeting} className="p-5 space-y-4">
           <Input name="meeting_date" label="Date & Time" type="datetime-local" required defaultValue={new Date().toISOString().slice(0, 16)} />
@@ -635,62 +613,6 @@ function ResearchTab({ brief, loading, onGenerate }: { brief: Record<string, any
           </div>
         )
       })}
-    </div>
-  )
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ContactsTab({ contacts, onAdd }: { contacts: Record<string, any>[]; onAdd: () => void }) {
-  return (
-    <div className="max-w-2xl space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-slate-300">{contacts.length} contact{contacts.length !== 1 ? 's' : ''}</h3>
-        <Button size="sm" variant="primary" onClick={onAdd}>
-          <Plus className="h-3.5 w-3.5" /> Add Contact
-        </Button>
-      </div>
-
-      {contacts.length === 0 && (
-        <div className="text-center py-8 text-slate-600">
-          <User className="h-8 w-8 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No contacts yet</p>
-        </div>
-      )}
-
-      {contacts.map(contact => (
-        <div key={String(contact.id)} className="bg-slate-800 border border-slate-700 rounded-lg p-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-slate-200">{String(contact.name)}</span>
-                {contact.contact_type && <Badge variant="info">{String(contact.contact_type)}</Badge>}
-                {contact.decision_maker_relevance === 'high' && <Badge variant="success">DM</Badge>}
-              </div>
-              {contact.role && <div className="text-xs text-slate-500 mt-0.5">{String(contact.role)}</div>}
-            </div>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-400">
-            {contact.email && (
-              <a href={`mailto:${contact.email}`} className="flex items-center gap-1 hover:text-cyan-400">
-                <Mail className="h-3 w-3" /> {String(contact.email)}
-              </a>
-            )}
-            {contact.phone && (
-              <span className="flex items-center gap-1">
-                <Phone className="h-3 w-3" /> {String(contact.phone)}
-              </span>
-            )}
-            {contact.linkedin_url && (
-              <a href={String(contact.linkedin_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-cyan-400">
-                <Link2 className="h-3 w-3" /> LinkedIn
-              </a>
-            )}
-          </div>
-          {contact.notes && (
-            <p className="mt-2 text-xs text-slate-500">{String(contact.notes)}</p>
-          )}
-        </div>
-      ))}
     </div>
   )
 }

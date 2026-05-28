@@ -306,6 +306,117 @@ Provide a weekly pipeline analysis:
 Be direct and action-oriented. This is for internal use by the SHMA team.`
 }
 
+export function buildContactDiscoveryPrompt(params: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  company: Record<string, unknown>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  brief: Record<string, unknown> | null
+  existingContacts: { name: string; role: string | null }[]
+  criteria: {
+    target_roles: string[]
+    seniority: string
+    preferred_entry: string
+    pasted_text: string
+    instructions: string
+    source_types: string[]
+  }
+  numberRequested: number
+}): string {
+  const { company, brief, existingContacts, criteria } = params
+
+  const companyText = `
+Name: ${company.name}
+Segment: ${company.segment || 'Unknown'}
+Country: ${company.country || 'Unknown'}
+Website: ${company.website || 'Unknown'}
+Stage: ${company.stage || 'Unknown'}
+Description: ${company.description || 'Not available'}
+PE Owned: ${company.pe_owned || 'Unknown'}
+Revenue Range: ${company.revenue_range || 'Unknown'}
+Employee Range: ${company.employee_range || 'Unknown'}
+`
+  const briefText = brief ? `
+SHMA Fit Hypothesis: ${brief.why_shma_relevant || ''}
+Possible AaaS Concept: ${brief.possible_aaas_concept || ''}
+Strategic Trigger: ${brief.strategic_trigger || ''}
+Suggested Entry Angle: ${brief.suggested_entry_angle || ''}
+` : 'No research brief available.'
+
+  const existingText = existingContacts.length > 0
+    ? existingContacts.map(c => `- ${c.name}${c.role ? ` (${c.role})` : ''}`).join('\n')
+    : 'None'
+
+  const targetRolesText = criteria.target_roles.length > 0
+    ? criteria.target_roles.join(', ')
+    : 'CEO, CFO, Head of Service, Head of Strategy, Head of Business Development'
+
+  return `You are an expert B2B sales intelligence analyst for SH Management / SHMA.
+
+SHMA helps asset-heavy B2B companies move from CapEx, project or equipment sales into scalable As-a-Service, managed service, pay-per-use, subscription or performance-based models.
+
+Your task is to identify and prioritize the most relevant contact persons or contact roles at a target company.
+
+CRITICAL RULES:
+- Do NOT invent personal contact data (names, emails, phone numbers).
+- Only provide a named person if their name appears in the provided company data, pasted text, or public source text below.
+- If no named person is known, suggest a role to find (known_or_hypothesis = "Suggested role").
+- Do NOT create fake email addresses or phone numbers.
+- If an email pattern is inferred (e.g. first.last@company.com), label email_status as "Pattern guess".
+- Always include validation_tasks.
+- Separate known contacts from suggested roles and AI hypotheses clearly.
+
+COMPANY PROFILE:
+${companyText}
+
+SHMA FIT HYPOTHESIS:
+${briefText}
+
+KNOWN CONTACTS (do not duplicate):
+${existingText}
+
+${criteria.pasted_text ? `PROVIDED TEXT (website, LinkedIn notes, etc.):\n${criteria.pasted_text}\n` : ''}
+
+CONTACT SEARCH CRITERIA:
+Target roles: ${targetRolesText}
+Seniority preference: ${criteria.seniority || 'C-suite and VP/Director level'}
+Preferred entry point: ${criteria.preferred_entry || 'Commercial or service decision-maker'}
+Additional instructions: ${criteria.instructions || 'Focus on people who could sponsor or influence a servitization transformation'}
+
+Return a JSON array of ${params.numberRequested} contact suggestions. Each must strictly follow this schema:
+
+{
+  "full_name": string or null,
+  "title": string or null,
+  "role_category": one of ["Executive sponsor","Commercial / strategy","Service / operations","Product / technology","Finance / ownership","Other influencer"],
+  "seniority": string or null,
+  "department": string or null,
+  "suggested_role_to_find": string or null (fill if full_name is null),
+  "email": string or null,
+  "email_status": one of ["Verified","Unverified","Pattern guess","Unknown"],
+  "phone": string or null,
+  "phone_status": one of ["Verified","Unverified","Company switchboard","Unknown"],
+  "mobile": null,
+  "mobile_status": "Unknown",
+  "linkedin_url": string or null,
+  "linkedin_status": one of ["User provided","Public website","Imported","Needs validation","Unknown"],
+  "source_type": one of ["Manual","Company website","Uploaded file","Pasted text","User-provided LinkedIn","AI suggested role"],
+  "source_url": string or null,
+  "known_or_hypothesis": one of ["Known contact","Suggested role","Hypothesis","Needs validation"],
+  "decision_power_score": 1-5,
+  "shma_relevance_score": 1-5,
+  "outreach_fit_score": 1-5,
+  "relationship_potential_score": 1-5,
+  "confidence_score": 1-5,
+  "ai_rationale": "2-3 sentence explanation of why this person/role matters",
+  "outreach_angle": "specific first message angle for SHMA",
+  "missing_information": ["list of things to validate"],
+  "validation_tasks": ["specific validation steps"],
+  "recommended_next_action": "concrete next step"
+}
+
+Return ONLY a valid JSON array. No markdown, no explanation. Start with [ and end with ].`
+}
+
 export function buildDiscoveryPrompt(params: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   criteria: any

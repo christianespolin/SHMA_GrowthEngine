@@ -341,6 +341,73 @@ export const STRATEGIC_TRIGGERS = [
   'Other',
 ] as const
 
+// ============================================================
+// CONTACT DISCOVERY TYPES
+// ============================================================
+
+export const ROLE_CATEGORIES = [
+  'Executive sponsor',
+  'Commercial / strategy',
+  'Service / operations',
+  'Product / technology',
+  'Finance / ownership',
+  'Other influencer',
+] as const
+
+export const CONTACT_GDPR_STATUSES = [
+  'Not reviewed',
+  'Legitimate interest reviewed',
+  'Consent',
+  'Do not contact',
+  'Suppression',
+] as const
+
+export const CONTACT_STATUSES = [
+  'Suggested',
+  'Validated',
+  'Contacted',
+  'Responded',
+  'Rejected',
+  'Do not contact',
+] as const
+
+export const KNOWN_OR_HYPOTHESIS = [
+  'Known contact',
+  'Suggested role',
+  'Hypothesis',
+  'Needs validation',
+] as const
+
+export interface ContactSuggestion {
+  full_name: string | null
+  title: string | null
+  role_category: string
+  seniority: string | null
+  department: string | null
+  suggested_role_to_find: string | null
+  email: string | null
+  email_status: string
+  phone: string | null
+  phone_status: string
+  mobile: string | null
+  mobile_status: string
+  linkedin_url: string | null
+  linkedin_status: string
+  source_type: string
+  source_url: string | null
+  known_or_hypothesis: string
+  decision_power_score: number
+  shma_relevance_score: number
+  outreach_fit_score: number
+  relationship_potential_score: number
+  confidence_score: number
+  ai_rationale: string
+  outreach_angle: string
+  missing_information: string[]
+  validation_tasks: string[]
+  recommended_next_action: string
+}
+
 export const REJECTION_REASONS = [
   'Not asset-heavy enough',
   'Too small',
