@@ -321,8 +321,9 @@ export function buildContactDiscoveryPrompt(params: {
     source_types: string[]
   }
   numberRequested: number
+  webContext?: string
 }): string {
-  const { company, brief, existingContacts, criteria } = params
+  const { company, brief, existingContacts, criteria, webContext } = params
 
   const companyText = `
 Name: ${company.name}
@@ -358,8 +359,9 @@ Your task is to identify and prioritize the most relevant contact persons or con
 
 CRITICAL RULES:
 - Do NOT invent personal contact data (names, emails, phone numbers).
-- Only provide a named person if their name appears in the provided company data, pasted text, or public source text below.
-- If no named person is known, suggest a role to find (known_or_hypothesis = "Suggested role").
+- Only provide a named person if their name appears in the provided company data, pasted text, or web search results below.
+- If a named person is found in web search results, use their real name and title — set source_type to "Company website" or "AI suggested role" as appropriate, and known_or_hypothesis to "Needs validation".
+- If no named person is known for a role, suggest the role to find (known_or_hypothesis = "Suggested role", full_name = null).
 - Do NOT create fake email addresses or phone numbers.
 - If an email pattern is inferred (e.g. first.last@company.com), label email_status as "Pattern guess".
 - Always include validation_tasks.
@@ -375,6 +377,7 @@ KNOWN CONTACTS (do not duplicate):
 ${existingText}
 
 ${criteria.pasted_text ? `PROVIDED TEXT (website, LinkedIn notes, etc.):\n${criteria.pasted_text}\n` : ''}
+${webContext || ''}
 
 CONTACT SEARCH CRITERIA:
 Target roles: ${targetRolesText}

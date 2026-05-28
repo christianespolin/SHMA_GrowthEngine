@@ -3,8 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { callClaude } from '@/lib/ai/client'
 import { buildContactDiscoveryPrompt } from '@/lib/ai/prompts'
+import { enrichContactsWithWebSearch } from '@/lib/ai/web-search'
 
-export const maxDuration = 120
+// Web search (≤32s) + AI generation (≤100s) + overhead — stay well within 5 min
+export const maxDuration = 180
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseJsonArray(text: string): any[] | null {
@@ -106,7 +108,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const criteria = run.criteria_json || {}
     const numberRequested = criteria.number_requested || 8
 
-    // Build prompt
+    // Web search: scan news articles, press releases, and company website for real named executives
+    // Non-fatal — if it fails or times out the AI falls back to role suggestions
+    const webContext = await enrichContactsWithWebSearch(
+      company.name as string,
+      (company.website as string | undefined) || undefined
+    )
+
+    // Build prompt (includes web context if found)
     const prompt = buildContactDiscoveryPrompt({
       company,
       brief,
@@ -120,6 +129,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         source_types: criteria.source_types || [],
       },
       numberRequested,
+      webContext,
     })
 
     let suggestions = null
