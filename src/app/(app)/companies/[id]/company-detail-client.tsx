@@ -155,14 +155,31 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
     e.preventDefault()
     const form = new FormData(e.currentTarget)
     const data = Object.fromEntries(form.entries())
-    const res = await fetch('/api/companies', {
+    const res = await fetch('/api/contacts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...data, company_id: localCompany.id }),
     })
     if (res.ok) {
-      router.refresh()
+      const newContact = await res.json()
+      setLocalContacts(prev => [...prev, newContact])
       setShowContactModal(false)
+      router.refresh()
+    }
+  }
+
+  const addMeeting = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = new FormData(e.currentTarget)
+    const data = Object.fromEntries(form.entries())
+    const res = await fetch('/api/meetings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, company_id: localCompany.id }),
+    })
+    if (res.ok) {
+      setShowMeetingModal(false)
+      router.refresh()
     }
   }
 
@@ -289,6 +306,17 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
           <Input name="phone" label="Phone" placeholder="+47 999 00 000" />
           <Textarea name="notes" label="Notes" placeholder="Met at conference, warm contact…" />
           <Button type="submit" variant="primary" className="w-full">Add Contact</Button>
+        </form>
+      </Modal>
+
+      <Modal open={showMeetingModal} onClose={() => setShowMeetingModal(false)} title="Log Meeting" size="md">
+        <form onSubmit={addMeeting} className="p-5 space-y-4">
+          <Input name="meeting_date" label="Date & Time" type="datetime-local" required defaultValue={new Date().toISOString().slice(0, 16)} />
+          <Input name="participants" label="Participants" placeholder="CEO, CFO, Stian (SHMA)" />
+          <Input name="objective" label="Meeting Objective" placeholder="Validate servitization hypothesis, map decision process" />
+          <Textarea name="notes" label="Meeting Notes" placeholder="What was discussed, key insights, decisions made…" rows={5} />
+          <Input name="next_step" label="Next Step" placeholder="Send proposal by Friday" />
+          <Button type="submit" variant="primary" className="w-full">Save Meeting</Button>
         </form>
       </Modal>
     </div>
