@@ -322,8 +322,9 @@ export function buildContactDiscoveryPrompt(params: {
   }
   numberRequested: number
   webContext?: string
+  webSearchEnabled?: boolean
 }): string {
-  const { company, brief, existingContacts, criteria, webContext } = params
+  const { company, brief, existingContacts, criteria, webContext, webSearchEnabled } = params
 
   const companyText = `
 Name: ${company.name}
@@ -351,7 +352,23 @@ Suggested Entry Angle: ${brief.suggested_entry_angle || ''}
     ? criteria.target_roles.join(', ')
     : 'CEO, CFO, Head of Service, Head of Strategy, Head of Business Development'
 
-  return `You are an expert B2B sales intelligence analyst for SH Management / SHMA.
+  const searchInstruction = webSearchEnabled ? `== STEP 1: SEARCH FIRST (required before generating JSON) ==
+
+Before writing any JSON, use the web_search tool to find real named executives at ${company.name as string}.
+
+Run these searches in order:
+1. "${company.name as string} leadership team executive management"
+2. "${company.name as string} CEO president chief executive"
+3. "${company.name as string} press release 2024 OR 2025" (find recently quoted executives)
+${(company.website as string) ? `4. Visit ${company.website as string} /about or /leadership or /team page` : ''}
+
+After each search, note any real named person with their title and source URL. Only trust names you see explicitly — do not invent.
+
+== STEP 2: GENERATE JSON (after searching) ==
+
+` : ''
+
+  return `${searchInstruction}You are an expert B2B sales intelligence analyst for SH Management / SHMA.
 
 SHMA helps asset-heavy B2B companies move from CapEx, project or equipment sales into scalable As-a-Service, managed service, pay-per-use, subscription or performance-based models.
 
