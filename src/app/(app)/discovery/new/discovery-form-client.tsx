@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input, Textarea, Select } from '@/components/ui/input'
 import { Header } from '@/components/layout/header'
 import { DISCOVERY_SEGMENTS, OWNERSHIP_TYPES, STRATEGIC_TRIGGERS, DiscoveryCriteria } from '@/lib/types'
-import { ArrowLeft, Sparkles, Loader2 } from 'lucide-react'
+import { ArrowLeft, Sparkles, Loader2, Save, FolderOpen, X as XIcon } from 'lucide-react'
 
 const COUNTRIES = [
   'Norway', 'Sweden', 'Denmark', 'Finland', 'Netherlands', 'Germany', 'United Kingdom',
@@ -78,6 +78,9 @@ function SectionCard({ title, children }: { title: string; children: React.React
   )
 }
 
+const TEMPLATE_KEY = 'shma_discovery_templates'
+interface Template { name: string; criteria: Partial<DiscoveryCriteria>; savedAt: string }
+
 const defaultCriteria: DiscoveryCriteria = {
   segments: [],
   countries: [],
@@ -111,6 +114,38 @@ export function DiscoveryFormClient() {
   const [criteria, setCriteria] = useState<DiscoveryCriteria>(defaultCriteria)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [showTemplates, setShowTemplates] = useState(false)
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(TEMPLATE_KEY)
+      if (saved) setTemplates(JSON.parse(saved))
+    } catch {}
+  }, [])
+
+  const saveTemplate = () => {
+    if (!templateName.trim()) return
+    const t: Template = { name: templateName, criteria, savedAt: new Date().toISOString() }
+    const updated = [...templates.filter(x => x.name !== templateName), t]
+    setTemplates(updated)
+    localStorage.setItem(TEMPLATE_KEY, JSON.stringify(updated))
+    setTemplateName('')
+    setShowSaveTemplate(false)
+  }
+
+  const loadTemplate = (t: Template) => {
+    setCriteria(prev => ({ ...prev, ...t.criteria }))
+    setShowTemplates(false)
+  }
+
+  const deleteTemplate = (name: string) => {
+    const updated = templates.filter(t => t.name !== name)
+    setTemplates(updated)
+    localStorage.setItem(TEMPLATE_KEY, JSON.stringify(updated))
+  }
 
   const updateCriteria = (key: keyof DiscoveryCriteria, value: DiscoveryCriteria[typeof key]) => {
     setCriteria(prev => ({ ...prev, [key]: value }))
@@ -194,6 +229,75 @@ export function DiscoveryFormClient() {
                   <ArrowLeft className="h-3.5 w-3.5" /> Back
                 </Button>
               </Link>
+              <div className="flex-1" />
+              {/* Template actions */}
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  onClick={() => { setShowTemplates(!showTemplates); setShowSaveTemplate(false) }}
+                >
+                  <FolderOpen className="h-3.5 w-3.5" /> Load template
+                  {templates.length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 bg-slate-700 text-slate-400 rounded text-xs">{templates.length}</span>
+                  )}
+                </Button>
+                {showTemplates && (
+                  <div className="absolute right-0 top-8 z-20 bg-slate-800 border border-slate-700 rounded-lg shadow-xl min-w-60">
+                    {templates.length === 0 && (
+                      <div className="px-4 py-3 text-xs text-slate-500">No saved templates yet</div>
+                    )}
+                    {templates.map(t => (
+                      <div key={t.name} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-700/50">
+                        <button
+                          type="button"
+                          onClick={() => loadTemplate(t)}
+                          className="flex-1 text-left"
+                        >
+                          <div className="text-sm text-slate-200">{t.name}</div>
+                          <div className="text-xs text-slate-500">{new Date(t.savedAt).toLocaleDateString()}</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteTemplate(t.name)}
+                          className="text-slate-600 hover:text-rose-400 transition-colors"
+                        >
+                          <XIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {!showSaveTemplate ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  onClick={() => { setShowSaveTemplate(true); setShowTemplates(false) }}
+                >
+                  <Save className="h-3.5 w-3.5" /> Save as template
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={templateName}
+                    onChange={e => setTemplateName(e.target.value)}
+                    placeholder="Template name…"
+                    className="bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 w-40"
+                    autoFocus
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveTemplate() } }}
+                  />
+                  <Button variant="primary" size="sm" type="button" onClick={saveTemplate} disabled={!templateName.trim()}>
+                    Save
+                  </Button>
+                  <Button variant="ghost" size="sm" type="button" onClick={() => setShowSaveTemplate(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </div>
 
             {error && (

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { callClaude } from '@/lib/ai/client'
 import { buildDiscoveryPrompt } from '@/lib/ai/prompts'
+import { enrichDiscoveryCriteria } from '@/lib/ai/web-search'
 
 // Allow up to 5 minutes — AI generation for 25+ companies takes time
 export const maxDuration = 300
@@ -59,13 +60,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const existingNames = (existingCompanies || []).map((c: { name: string }) => c.name)
 
     // Build and call AI
+    const webContext = await enrichDiscoveryCriteria(search.criteria_json || {})
     const prompt = buildDiscoveryPrompt({
       criteria: search.criteria_json,
       number_requested: search.number_requested || 25,
       search_depth: search.search_depth || 'standard',
       mode: search.mode || 'generate',
       existing_companies: existingNames,
-    })
+    }) + webContext
 
     let suggestions = null
     let aiResponse = null

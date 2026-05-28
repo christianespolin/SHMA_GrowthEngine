@@ -49,6 +49,24 @@ export default async function DashboardPage() {
     .sort((a, b) => new Date(b.last_activity_date).getTime() - new Date(a.last_activity_date).getTime())
     .slice(0, 5)
 
+  // Upcoming meetings (next 14 days)
+  const twoWeeksOut = new Date()
+  twoWeeksOut.setDate(twoWeeksOut.getDate() + 14)
+  const { data: upcomingMeetings } = await supabase
+    .from('meetings')
+    .select('*, companies(id, name, stage)')
+    .gte('meeting_date', new Date().toISOString())
+    .lte('meeting_date', twoWeeksOut.toISOString())
+    .order('meeting_date', { ascending: true })
+    .limit(5)
+
+  // Recent activity (last 10 entries)
+  const { data: recentActivity } = await supabase
+    .from('activity_log')
+    .select('*, companies(id, name)')
+    .order('created_at', { ascending: false })
+    .limit(10)
+
   return (
     <>
       <Header title="Dashboard" subtitle="Pipeline overview and AI recommendations" />
@@ -58,6 +76,8 @@ export default async function DashboardPage() {
         upcomingActions={upcomingActions}
         recentlyActive={recentlyActive}
         totalCompanies={all.length}
+        upcomingMeetings={upcomingMeetings || []}
+        recentActivity={recentActivity || []}
       />
     </>
   )

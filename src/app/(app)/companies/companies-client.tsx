@@ -10,8 +10,8 @@ import { Input, Select } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
 import { formatDate, isOverdue, isStale, cn } from '@/lib/utils'
 import {
-  Plus, Search, Filter, ExternalLink, AlertTriangle, Clock,
-  Building2, Globe, ChevronRight, Sparkles
+  Plus, Search, ExternalLink, AlertTriangle, Clock,
+  Building2, Globe, ChevronRight, Sparkles, Download
 } from 'lucide-react'
 
 interface Company {
@@ -159,6 +159,12 @@ export function CompaniesClient({ companies, filters }: { companies: Company[]; 
               : `Score unscored (${unscored.length})`}
           </Button>
         )}
+
+        <a href="/api/export/companies" download>
+          <Button size="sm" variant="secondary">
+            <Download className="h-3.5 w-3.5" /> Export CSV
+          </Button>
+        </a>
 
         <Button size="sm" variant="primary" onClick={() => setShowAddModal(true)}>
           <Plus className="h-3.5 w-3.5" /> Add company

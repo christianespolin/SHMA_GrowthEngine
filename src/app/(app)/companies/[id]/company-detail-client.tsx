@@ -44,6 +44,10 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
   const [aiResult, setAiResult] = useState<Record<string, string> | null>(null)
   const [showContactModal, setShowContactModal] = useState(false)
   const [showMeetingModal, setShowMeetingModal] = useState(false)
+  const [showOutreachModal, setShowOutreachModal] = useState(false)
+  const [loggingOutreach, setLoggingOutreach] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [localActivity, setLocalActivity] = useState<Record<string, any>[]>(activity)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [localCompany, setLocalCompany] = useState<Record<string, any>>(company)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -168,6 +172,36 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
     }
   }
 
+  const logOutreach = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = new FormData(e.currentTarget)
+    const channel = form.get('channel') as string
+    const subject = form.get('subject') as string
+    const notes = form.get('notes') as string
+    const logged_at = form.get('logged_at') as string
+    setLoggingOutreach(true)
+    try {
+      const res = await fetch('/api/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company_id: localCompany.id,
+          type: 'outreach_sent',
+          description: `${channel}: ${subject || 'Outreach'}`,
+          metadata_json: { channel, subject, notes, logged_at },
+        }),
+      })
+      if (res.ok) {
+        const newActivity = await res.json()
+        setLocalActivity(prev => [newActivity, ...prev])
+        setShowOutreachModal(false)
+        router.refresh()
+      }
+    } finally {
+      setLoggingOutreach(false)
+    }
+  }
+
   const addMeeting = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
@@ -289,7 +323,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
           />
         )}
         {tab === 'activity' && (
-          <ActivityTab activity={activity} />
+          <ActivityTab activity={localActivity} onLogOutreach={() => setShowOutreachModal(true)} />
         )}
       </div>
 
@@ -317,6 +351,33 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
           <Textarea name="notes" label="Meeting Notes" placeholder="What was discussed, key insights, decisions made…" rows={5} />
           <Input name="next_step" label="Next Step" placeholder="Send proposal by Friday" />
           <Button type="submit" variant="primary" className="w-full">Save Meeting</Button>
+        </form>
+      </Modal>
+
+      <Modal open={showOutreachModal} onClose={() => setShowOutreachModal(false)} title="Log Outreach" size="md">
+        <form onSubmit={logOutreach} className="p-5 space-y-4">
+          <Select
+            name="channel"
+            label="Channel"
+            placeholder="Select channel"
+            options={[
+              { value: 'Email', label: 'Email' },
+              { value: 'LinkedIn', label: 'LinkedIn' },
+              { value: 'Phone Call', label: 'Phone Call' },
+              { value: 'Other', label: 'Other' },
+            ]}
+          />
+          <Input
+            name="logged_at"
+            label="Date & Time"
+            type="datetime-local"
+            defaultValue={new Date().toISOString().slice(0, 16)}
+          />
+          <Input name="subject" label="Subject / Purpose" placeholder="Introduction to SHMA" />
+          <Textarea name="notes" label="Notes" placeholder="What was sent / discussed…" rows={4} />
+          <Button type="submit" variant="primary" className="w-full" loading={loggingOutreach}>
+            Log Outreach
+          </Button>
         </form>
       </Modal>
     </div>
@@ -834,7 +895,7 @@ function MeetingsTab({ meetings, meetingBrief, loading, onGenerateBrief, onAdd }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ActivityTab({ activity }: { activity: Record<string, any>[] }) {
+function ActivityTab({ activity, onLogOutreach }: { activity: Record<string, any>[]; onLogOutreach: () => void }) {
   const icons: Record<string, React.ReactNode> = {
     stage_change: <CheckCircle2 className="h-3.5 w-3.5 text-cyan-400" />,
     priority_change: <Target className="h-3.5 w-3.5 text-amber-400" />,
@@ -847,6 +908,12 @@ function ActivityTab({ activity }: { activity: Record<string, any>[] }) {
 
   return (
     <div className="max-w-lg">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-medium text-slate-300">Activity Log</h3>
+        <Button size="sm" variant="primary" onClick={onLogOutreach}>
+          <Plus className="h-3.5 w-3.5" /> Log Outreach
+        </Button>
+      </div>
       {activity.length === 0 && (
         <div className="text-center py-8 text-slate-600">
           <Activity className="h-8 w-8 mx-auto mb-2 opacity-30" />

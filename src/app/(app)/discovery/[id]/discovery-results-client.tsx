@@ -10,7 +10,7 @@ import { Header } from '@/components/layout/header'
 import { PIPELINE_STAGES, REJECTION_REASONS } from '@/lib/types'
 import {
   ChevronDown, ChevronUp, Check, X, Bookmark, ExternalLink,
-  AlertTriangle, ArrowLeft, Globe
+  AlertTriangle, ArrowLeft, Globe, RefreshCw, Download, Loader2
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -422,6 +422,7 @@ export function DiscoveryResultsClient({ search, initialSuggestions }: Props) {
   const [activeTab, setActiveTab] = useState<ActiveTab>('all')
   const [filterPriority, setFilterPriority] = useState('')
   const [filterConfidence, setFilterConfidence] = useState('')
+  const [running, setRunning] = useState(false)
   const [convertModal, setConvertModal] = useState<Suggestion | null>(null)
   const [convertStage, setConvertStage] = useState('AI Researched')
   const [converting, setConverting] = useState(false)
@@ -501,6 +502,16 @@ export function DiscoveryResultsClient({ search, initialSuggestions }: Props) {
     await patchSuggestion(id, { status: 'saved_for_later' })
   }
 
+  const runSearch = async () => {
+    setRunning(true)
+    try {
+      await fetch(`/api/discovery/searches/${search.id}/run`, { method: 'POST' })
+      router.refresh()
+    } finally {
+      setRunning(false)
+    }
+  }
+
   const tabs: { key: ActiveTab; label: string }[] = [
     { key: 'all', label: 'All' },
     { key: 'suggested', label: 'Pending' },
@@ -515,11 +526,40 @@ export function DiscoveryResultsClient({ search, initialSuggestions }: Props) {
         title={search.search_name}
         subtitle={`Discovery search results`}
         actions={
-          <Link href="/discovery">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-3.5 w-3.5" /> All searches
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            {(search.status === 'failed' || suggestions.length === 0) && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={runSearch}
+                disabled={running}
+              >
+                {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                {running ? 'Generating suggestions…' : 'Re-run search'}
+              </Button>
+            )}
+            {search.status === 'completed' && suggestions.length > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={runSearch}
+                disabled={running}
+              >
+                {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                {running ? 'Generating suggestions…' : 'Re-run'}
+              </Button>
+            )}
+            <a href={`/api/export/discovery/${search.id}`} download>
+              <Button variant="ghost" size="sm">
+                <Download className="h-3.5 w-3.5" /> Export CSV
+              </Button>
+            </a>
+            <Link href="/discovery">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="h-3.5 w-3.5" /> All searches
+              </Button>
+            </Link>
+          </div>
         }
       />
       <div className="flex-1 overflow-auto p-5 space-y-4">

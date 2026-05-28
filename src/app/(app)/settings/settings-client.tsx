@@ -1,11 +1,11 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/input'
+import { Input, Textarea } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Modal } from '@/components/ui/modal'
-import { formatDate } from '@/lib/utils'
-import { Edit3, Save, CheckCircle2, FileSpreadsheet } from 'lucide-react'
+import { formatDate, formatDateRelative } from '@/lib/utils'
+import { Edit3, Save, CheckCircle2, FileSpreadsheet, Users, UserPlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Prompt {
@@ -27,13 +27,59 @@ interface Import {
   created_at: string
 }
 
+interface Member {
+  id: string
+  email: string | undefined
+  full_name: string | null
+  role: string
+  created_at: string
+  last_sign_in: string | null
+}
+
 export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; imports: Import[] }) {
-  const [tab, setTab] = useState<'prompts' | 'ai' | 'imports'>('prompts')
+  const [tab, setTab] = useState<'prompts' | 'ai' | 'imports' | 'team'>('prompts')
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null)
   const [editText, setEditText] = useState('')
   const [saving, setSaving] = useState(false)
+  const [members, setMembers] = useState<Member[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(false)
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteStatus, setInviteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [inviteError, setInviteError] = useState<string | null>(null)
 
   const categories = [...new Set(prompts.map(p => p.category))]
+
+  useEffect(() => {
+    if (tab === 'team' && members.length === 0) {
+      setLoadingMembers(true)
+      fetch('/api/team/members')
+        .then(r => r.json())
+        .then(data => setMembers(data.members || []))
+        .catch(() => {})
+        .finally(() => setLoadingMembers(false))
+    }
+  }, [tab, members.length])
+
+  const sendInvite = async () => {
+    if (!inviteEmail.trim()) return
+    setInviteStatus('loading')
+    setInviteError(null)
+    try {
+      const res = await fetch('/api/team/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setInviteStatus('success')
+      setInviteEmail('')
+    } catch (err) {
+      setInviteStatus('error')
+      setInviteError(err instanceof Error ? err.message : 'Failed to send invite')
+    }
+  }
 
   const handleEdit = (prompt: Prompt) => {
     setEditingPrompt(prompt)
@@ -55,7 +101,7 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
     }
   }
 
-  const tabs = ['prompts', 'ai', 'imports'] as const
+  const tabs = ['prompts', 'ai', 'imports', 'team'] as const
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -69,7 +115,7 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
               tab === t ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-500 hover:text-slate-300'
             )}
           >
-            {t === 'prompts' ? 'Prompt Library' : t === 'ai' ? 'AI Configuration' : 'Import History'}
+            {t === 'prompts' ? 'Prompt Library' : t === 'ai' ? 'AI Configuration' : t === 'imports' ? 'Import History' : 'Team'}
           </button>
         ))}
       </div>
@@ -172,6 +218,56 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
             </div>
           </div>
         )}
+
+        {tab === 'team' && (
+          <div className="max-w-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-slate-200">Team Members</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Users with access to SHMA Growth Engine</p>
+              </div>
+              <Button size="sm" variant="primary" onClick={() => { setShowInviteModal(true); setInviteStatus('idle') }}>
+                <UserPlus className="h-3.5 w-3.5" /> Invite member
+              </Button>
+            </div>
+
+            {loadingMembers && (
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <div className="animate-spin h-4 w-4 border-2 border-cyan-500 border-t-transparent rounded-full" />
+                Loading members…
+              </div>
+            )}
+
+            {!loadingMembers && members.length === 0 && (
+              <div className="text-center py-8 text-slate-600">
+                <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No team members found</p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {members.map(m => (
+                <div key={m.id} className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-medium text-slate-200">{m.full_name || m.email || 'Unknown'}</div>
+                        <Badge variant={m.role === 'admin' ? 'success' : 'muted'}>{m.role}</Badge>
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {m.email}
+                        {m.last_sign_in && (
+                          <span className="ml-2 text-slate-600">· Last login: {formatDateRelative(m.last_sign_in)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-600">{formatDate(m.created_at)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <Modal open={!!editingPrompt} onClose={() => setEditingPrompt(null)} title={`Edit: ${editingPrompt?.name?.replace(/_/g, ' ')}`} size="xl">
@@ -188,6 +284,42 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
             </Button>
             <Button variant="ghost" onClick={() => setEditingPrompt(null)}>Cancel</Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal open={showInviteModal} onClose={() => { setShowInviteModal(false); setInviteStatus('idle') }} title="Invite Team Member" size="sm">
+        <div className="p-5 space-y-4">
+          {inviteStatus === 'success' ? (
+            <div className="flex items-center gap-2 text-emerald-400">
+              <CheckCircle2 className="h-5 w-5" />
+              <span className="text-sm">Invite sent successfully!</span>
+            </div>
+          ) : (
+            <>
+              <Input
+                label="Email address"
+                type="email"
+                placeholder="colleague@company.com"
+                value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)}
+              />
+              {inviteStatus === 'error' && inviteError && (
+                <p className="text-xs text-rose-400">{inviteError}</p>
+              )}
+              <div className="flex gap-2">
+                <Button
+                  variant="primary"
+                  onClick={sendInvite}
+                  loading={inviteStatus === 'loading'}
+                  className="flex-1"
+                  disabled={!inviteEmail.trim()}
+                >
+                  <UserPlus className="h-3.5 w-3.5" /> Send Invite
+                </Button>
+                <Button variant="ghost" onClick={() => setShowInviteModal(false)}>Cancel</Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>

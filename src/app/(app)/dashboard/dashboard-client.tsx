@@ -6,7 +6,7 @@ import { ScoreBadge, PriorityBadge } from '@/components/ui/score-display'
 import { formatDate, formatDateRelative, isOverdue } from '@/lib/utils'
 import {
   Building2, Target, Calendar, FileText, TrendingUp, CheckCircle2,
-  AlertTriangle, Clock, Sparkles, ArrowRight, RefreshCw, ChevronRight
+  AlertTriangle, Clock, Sparkles, ArrowRight, RefreshCw, ChevronRight, Activity
 } from 'lucide-react'
 
 interface StatCardProps {
@@ -49,9 +49,38 @@ interface DashboardClientProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   recentlyActive: Record<string, any>[]
   totalCompanies: number
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  upcomingMeetings: Record<string, any>[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  recentActivity: Record<string, any>[]
 }
 
-export function DashboardClient({ stats, stageBreakdown, upcomingActions, recentlyActive }: DashboardClientProps) {
+function activityTypeLabel(type: string): string {
+  const map: Record<string, string> = {
+    meeting_logged: 'Meeting',
+    outreach_sent: 'Outreach',
+    stage_changed: 'Stage change',
+    ai_research_completed: 'AI Research',
+    contact_added: 'Contact added',
+    note_updated: 'Note',
+    ai_research: 'AI Research',
+    ai_scoring: 'AI Scoring',
+    company_created: 'Created',
+    priority_change: 'Priority',
+  }
+  return map[type] || type.replace(/_/g, ' ')
+}
+
+function activityTypeBadgeClass(type: string): string {
+  if (type === 'meeting_logged') return 'bg-cyan-500/20 text-cyan-300'
+  if (type === 'outreach_sent') return 'bg-emerald-500/20 text-emerald-300'
+  if (type === 'stage_changed' || type === 'stage_change') return 'bg-amber-500/20 text-amber-300'
+  if (type === 'note_updated' || type === 'note') return 'bg-slate-700 text-slate-400'
+  if (type.startsWith('ai_')) return 'bg-purple-500/20 text-purple-300'
+  return 'bg-slate-700 text-slate-400'
+}
+
+export function DashboardClient({ stats, stageBreakdown, upcomingActions, recentlyActive, upcomingMeetings, recentActivity }: DashboardClientProps) {
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
   const [loadingAI, setLoadingAI] = useState(false)
 
@@ -172,6 +201,93 @@ export function DashboardClient({ stats, stageBreakdown, upcomingActions, recent
             <Link href="/pipeline" className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors">
               View Kanban board <ArrowRight className="h-3 w-3" />
             </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Upcoming Meetings + Recent Activity */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Upcoming Meetings */}
+        <div className="bg-slate-800 border border-slate-700 rounded-lg">
+          <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-cyan-400" />
+              <h2 className="text-sm font-semibold text-slate-200">Upcoming Meetings</h2>
+            </div>
+            <span className="text-xs text-slate-500">Next 14 days</span>
+          </div>
+          <div className="divide-y divide-slate-700/50">
+            {upcomingMeetings.length === 0 && (
+              <div className="px-4 py-6 text-center text-xs text-slate-600">No meetings scheduled</div>
+            )}
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {upcomingMeetings.map((m: any) => {
+              const company = m.companies as Record<string, unknown> | null
+              const meetingDate = new Date(String(m.meeting_date))
+              const day = meetingDate.getDate()
+              const month = meetingDate.toLocaleString('default', { month: 'short' })
+              return (
+                <Link
+                  key={String(m.id)}
+                  href={company ? `/companies/${company.id}` : '#'}
+                  className="flex items-start gap-3 px-4 py-3 hover:bg-slate-700/30 transition-colors"
+                >
+                  <div className="flex-shrink-0 w-10 text-center">
+                    <div className="text-xs text-cyan-400 font-semibold uppercase">{month}</div>
+                    <div className="text-lg font-bold text-slate-100 leading-none">{day}</div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-slate-200 truncate">
+                      {company ? String(company.name) : 'Unknown Company'}
+                    </div>
+                    {m.objective && (
+                      <div className="text-xs text-slate-500 mt-0.5 truncate">{String(m.objective)}</div>
+                    )}
+                    {m.participants && (
+                      <div className="text-xs text-slate-600 mt-0.5 truncate">{String(m.participants)}</div>
+                    )}
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Recent Activity Feed */}
+        <div className="bg-slate-800 border border-slate-700 rounded-lg">
+          <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
+            <Activity className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold text-slate-200">Recent Activity</h2>
+          </div>
+          <div className="p-3 space-y-2 max-h-72 overflow-y-auto">
+            {recentActivity.length === 0 && (
+              <div className="text-center py-6 text-xs text-slate-600">No recent activity</div>
+            )}
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {recentActivity.map((item: any) => {
+              const company = item.companies as Record<string, unknown> | null
+              const actType = String(item.type || item.activity_type || '')
+              return (
+                <div key={String(item.id)} className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${activityTypeBadgeClass(actType)}`}>
+                        {activityTypeLabel(actType)}
+                      </span>
+                      {company && (
+                        <Link href={`/companies/${company.id}`} className="text-xs text-cyan-400 hover:text-cyan-300 truncate">
+                          {String(company.name)}
+                        </Link>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">{String(item.description || '')}</p>
+                  </div>
+                  <div className="text-xs text-slate-600 flex-shrink-0">
+                    {formatDateRelative(item.created_at as string | null)}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>

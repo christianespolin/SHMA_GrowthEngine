@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
     let imported = 0
     let skipped = 0
     const errors: string[] = []
+    const importedIds: string[] = []
 
     for (const row of rows) {
       const { data: existing } = await supabase
@@ -176,6 +177,9 @@ export async function POST(request: NextRequest) {
         })
       }
 
+      if (company) {
+        importedIds.push(company.id)
+      }
       imported++
     }
 
@@ -193,6 +197,7 @@ export async function POST(request: NextRequest) {
       success: true,
       imported,
       skipped,
+      importedIds,
       errors: errors.length > 0 ? errors : undefined,
     })
   } catch (error) {

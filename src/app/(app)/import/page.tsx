@@ -22,8 +22,10 @@ export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<PreviewRow[] | null>(null)
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<{ imported: number; skipped: number; errors?: string[] } | null>(null)
+  const [result, setResult] = useState<{ imported: number; skipped: number; importedIds?: string[]; errors?: string[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [autoResearch, setAutoResearch] = useState(false)
+  const [researchProgress, setResearchProgress] = useState<{ done: number; total: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
@@ -62,6 +64,24 @@ export default function ImportPage() {
       setResult(data)
       setPreview(null)
       router.refresh()
+
+      // Auto-research if enabled and we have imported IDs
+      if (autoResearch && data.importedIds && data.importedIds.length > 0) {
+        const ids: string[] = data.importedIds
+        setResearchProgress({ done: 0, total: ids.length })
+        for (let i = 0; i < ids.length; i++) {
+          try {
+            await fetch('/api/ai/research', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ company_id: ids[i] }),
+            })
+          } catch { /* continue */ }
+          setResearchProgress({ done: i + 1, total: ids.length })
+        }
+        setResearchProgress(null)
+        router.refresh()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Import failed')
     } finally {
@@ -152,7 +172,24 @@ export default function ImportPage() {
           </div>
         )}
 
-        {result && (
+        {researchProgress && (
+          <div className="mt-4 bg-cyan-500/10 border border-cyan-500/20 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="animate-spin h-4 w-4 border-2 border-cyan-500 border-t-transparent rounded-full" />
+              <span className="text-sm text-cyan-300">
+                Researching company {researchProgress.done + 1} of {researchProgress.total}…
+              </span>
+            </div>
+            <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-cyan-500 rounded-full transition-all duration-300"
+                style={{ width: `${(researchProgress.done / researchProgress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {result && !researchProgress && (
           <div className="mt-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle2 className="h-5 w-5 text-emerald-400" />
@@ -185,9 +222,20 @@ export default function ImportPage() {
                 <h3 className="text-sm font-medium text-slate-200">Preview — {preview.length} companies found</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Review before importing. Duplicates by name will be skipped.</p>
               </div>
-              <Button variant="primary" onClick={confirmImport} loading={loading}>
-                <Upload className="h-3.5 w-3.5" /> Import {preview.length} Companies
-              </Button>
+              <div className="flex flex-col items-end gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoResearch}
+                    onChange={e => setAutoResearch(e.target.checked)}
+                    className="accent-cyan-500"
+                  />
+                  <span className="text-xs text-slate-400">Auto-run AI research on import (~30s per company)</span>
+                </label>
+                <Button variant="primary" onClick={confirmImport} loading={loading}>
+                  <Upload className="h-3.5 w-3.5" /> Import {preview.length} Companies
+                </Button>
+              </div>
             </div>
 
             <div className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
