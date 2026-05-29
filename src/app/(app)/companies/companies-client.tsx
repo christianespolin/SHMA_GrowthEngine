@@ -92,7 +92,11 @@ export function CompaniesClient({ companies, filters }: { companies: Company[]; 
   const handleAddCompany = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
-    const data = Object.fromEntries(form.entries())
+    const data = Object.fromEntries(form.entries()) as Record<string, string>
+    // Normalise website — add https:// if the user omitted the protocol
+    if (data.website && !/^https?:\/\//i.test(data.website)) {
+      data.website = `https://${data.website}`
+    }
     const res = await fetch('/api/companies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -292,7 +296,7 @@ export function CompaniesClient({ companies, filters }: { companies: Company[]; 
       <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add Company" size="md">
         <form onSubmit={handleAddCompany} className="p-5 space-y-4">
           <Input name="name" label="Company Name" placeholder="Acme Industrial" required />
-          <Input name="website" label="Website" placeholder="https://acme.com" type="url" />
+          <Input name="website" label="Website" placeholder="www.acme.com" type="text" />
           <div className="grid grid-cols-2 gap-4">
             <Select
               name="segment"
