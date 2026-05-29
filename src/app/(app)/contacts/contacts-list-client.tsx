@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
-import { User, Building2, Search, ChevronRight } from 'lucide-react'
+import { ConfirmDeleteModal } from '@/components/ui/confirm-delete-modal'
+import { User, Building2, Search, ChevronRight, Trash2 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface Props {
@@ -55,16 +56,19 @@ function getOutreachCount(contact: Record<string, any>): number {
   const om = contact.outreach_messages
   if (!om) return 0
   if (Array.isArray(om)) return om.length
-  // Supabase count returns [{count: N}]
   if (Array.isArray(om) && om[0]?.count != null) return Number(om[0].count)
   return 0
 }
 
 export function ContactsListClient({ contacts }: Props) {
   const [search, setSearch] = useState('')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [deleteTarget, setDeleteTarget] = useState<Record<string, any> | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [localContacts, setLocalContacts] = useState<Record<string, any>[]>(contacts)
 
   const filtered = search.trim()
-    ? contacts.filter(c => {
+    ? localContacts.filter(c => {
         const q = search.toLowerCase()
         const name = (c.full_name || c.name || '').toLowerCase()
         const title = (c.title || c.role || '').toLowerCase()
@@ -74,7 +78,7 @@ export function ContactsListClient({ contacts }: Props) {
         const role = (c.role_category || '').toLowerCase()
         return name.includes(q) || title.includes(q) || companyName.includes(q) || role.includes(q)
       })
-    : contacts
+    : localContacts
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
@@ -100,7 +104,7 @@ export function ContactsListClient({ contacts }: Props) {
           <div className="text-xs font-medium text-slate-500 text-center">Scores</div>
           <div className="text-xs font-medium text-slate-500">AI Rationale</div>
           <div className="text-xs font-medium text-slate-500 text-center">Outreach</div>
-          <div className="text-xs font-medium text-slate-500 sr-only">View</div>
+          <div className="text-xs font-medium text-slate-500 sr-only">Actions</div>
         </div>
 
         {filtered.length === 0 && (
@@ -120,13 +124,9 @@ export function ContactsListClient({ contacts }: Props) {
             : null
 
           return (
-            <Link
-              key={contact.id}
-              href={`/contacts/${contact.id}`}
-              className="grid grid-cols-[2fr_1.5fr_auto_2fr_auto_auto] gap-3 px-5 py-3 border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors items-center group"
-            >
-              {/* Contact */}
-              <div className="flex items-center gap-2.5 min-w-0">
+            <div key={contact.id} className="grid grid-cols-[2fr_1.5fr_auto_2fr_auto_auto] gap-3 px-5 py-3 border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors items-center group">
+              {/* Contact — clickable */}
+              <Link href={`/contacts/${contact.id}`} className="flex items-center gap-2.5 min-w-0">
                 <div className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
                   <span className="text-xs font-medium text-slate-400">
                     {displayName.charAt(0).toUpperCase()}
@@ -141,7 +141,7 @@ export function ContactsListClient({ contacts }: Props) {
                     <div className="text-xs text-slate-500 truncate mt-0.5">{contact.title || contact.role}</div>
                   )}
                 </div>
-              </div>
+              </Link>
 
               {/* Company */}
               <div className="min-w-0">
@@ -183,14 +183,40 @@ export function ContactsListClient({ contacts }: Props) {
                 )}
               </div>
 
-              {/* View chevron */}
-              <div className="flex items-center justify-center">
-                <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
+              {/* Actions */}
+              <div className="flex items-center gap-1 justify-end">
+                <button
+                  onClick={() => setDeleteTarget(contact)}
+                  className="p-1 text-slate-700 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                  title="Delete contact"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+                <Link href={`/contacts/${contact.id}`}>
+                  <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                </Link>
               </div>
-            </Link>
+            </div>
           )
         })}
       </div>
+
+      {/* Delete contact modal */}
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title="Delete contact"
+        description={`Delete "${deleteTarget?.full_name || deleteTarget?.name}"? Their outreach history will also be removed. This cannot be undone.`}
+        confirmLabel="Delete contact"
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!deleteTarget) return
+          const res = await fetch(`/api/contacts/${deleteTarget.id}`, { method: 'DELETE' })
+          if (res.ok) {
+            setLocalContacts(prev => prev.filter(c => c.id !== deleteTarget.id))
+            setDeleteTarget(null)
+          }
+        }}
+      />
     </div>
   )
 }

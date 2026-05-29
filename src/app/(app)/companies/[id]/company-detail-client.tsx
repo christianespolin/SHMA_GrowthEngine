@@ -9,10 +9,11 @@ import { Badge } from '@/components/ui/badge'
 import { formatDate, formatDateRelative, cn } from '@/lib/utils'
 import { PIPELINE_STAGES, SEGMENTS, NEXT_ACTION_TYPES } from '@/lib/types'
 import { ContactsTabClient } from './contacts-tab-client'
+import { ConfirmDeleteModal } from '@/components/ui/confirm-delete-modal'
 import {
   Sparkles, Building2, Globe, MapPin, User, Mail, Phone, Link2,
   Calendar, FileText, MessageSquare, Activity, ChevronDown, Edit3,
-  Plus, Send, AlertTriangle, CheckCircle2, Clock, ExternalLink, Copy, Save
+  Plus, Send, AlertTriangle, CheckCircle2, Clock, ExternalLink, Copy, Save, Trash2
 } from 'lucide-react'
 
 const SCORE_LABELS: Record<string, string> = {
@@ -46,6 +47,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
   const [aiResult, setAiResult] = useState<Record<string, string> | null>(null)
   const [showMeetingModal, setShowMeetingModal] = useState(false)
   const [showOutreachModal, setShowOutreachModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [loggingOutreach, setLoggingOutreach] = useState(false)
   const [outreachJustSaved, setOutreachJustSaved] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -264,7 +266,27 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
             <Edit3 className="h-3.5 w-3.5" /> Edit
           </Button>
         )}
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          className="p-1.5 text-slate-600 hover:text-red-400 transition-colors rounded"
+          title="Delete company"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
+
+      {/* Delete Company Modal */}
+      <ConfirmDeleteModal
+        open={showDeleteModal}
+        title="Delete company"
+        description={`Delete "${localCompany.name}"? All associated contacts, meetings, activity, and outreach will also be permanently deleted. This cannot be undone.`}
+        confirmLabel="Delete company"
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={async () => {
+          const res = await fetch(`/api/companies/${localCompany.id}`, { method: 'DELETE' })
+          if (res.ok) router.push('/companies')
+        }}
+      />
 
       {/* Tabs */}
       <div className="flex gap-0 border-b border-slate-800 px-5 flex-shrink-0">

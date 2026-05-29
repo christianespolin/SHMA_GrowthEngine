@@ -1,8 +1,10 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ConfirmDeleteModal } from '@/components/ui/confirm-delete-modal'
 import {
   User,
   Mail,
@@ -19,6 +21,7 @@ import {
   ChevronUp,
   Tag,
   Shield,
+  Trash2,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
@@ -149,6 +152,8 @@ export function ContactDetailClient({ contact, company, outreach }: Props) {
   const [localOutreach, setLocalOutreach] = useState(outreach)
   const [marking, setMarking] = useState<string | null>(null)
   const [gdprExpanded, setGdprExpanded] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const router = useRouter()
 
   const validationTasks: string[] = Array.isArray(contact.validation_tasks) ? contact.validation_tasks : []
   const missingInfo: string[] = Array.isArray(contact.missing_information) ? contact.missing_information : []
@@ -194,6 +199,13 @@ export function ContactDetailClient({ contact, company, outreach }: Props) {
               <RoleCategoryBadge role={contact.role_category} />
               <ContactStatusBadge status={contact.contact_status} />
               <GdprBadge status={contact.gdpr_status} />
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="ml-auto p-1.5 text-slate-600 hover:text-red-400 transition-colors rounded"
+                title="Delete contact"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
             <div className="text-sm text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
               {contact.title || contact.role ? (
@@ -479,6 +491,19 @@ export function ContactDetailClient({ contact, company, outreach }: Props) {
         </div>
 
       </div>
+
+      {/* Delete contact modal */}
+      <ConfirmDeleteModal
+        open={showDeleteModal}
+        title="Delete contact"
+        description={`Delete "${contactName}"? Their outreach history will also be removed. This cannot be undone.`}
+        confirmLabel="Delete contact"
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={async () => {
+          const res = await fetch(`/api/contacts/${contact.id}`, { method: 'DELETE' })
+          if (res.ok) router.push(company ? `/companies/${company.id}` : '/contacts')
+        }}
+      />
     </div>
   )
 }

@@ -70,26 +70,28 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // Soft delete — set gdpr_status to Suppression
-    const { data, error } = await supabase
+    // Fetch first so we can log the deletion
+    const { data: contact } = await supabase
       .from('contacts')
-      .update({ gdpr_status: 'Suppression', contact_status: 'Do not contact' })
+      .select('name, company_id')
       .eq('id', id)
-      .select()
       .single()
 
+    const { error } = await supabase.from('contacts').delete().eq('id', id)
     if (error) throw error
 
-    await supabase.from('activity_log').insert({
-      company_id: data.company_id,
-      activity_type: 'contact_suppressed',
-      description: `Contact suppressed: ${data.name}`,
-      user_id: user.id,
-    })
+    if (contact?.company_id) {
+      await supabase.from('activity_log').insert({
+        company_id: contact.company_id,
+        activity_type: 'contact_deleted',
+        description: `Contact deleted: ${contact.name}`,
+        user_id: user.id,
+      })
+    }
 
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('DELETE contact error:', error)
-    return NextResponse.json({ error: 'Failed to suppress contact' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to delete contact' }, { status: 500 })
   }
 }

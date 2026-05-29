@@ -8,10 +8,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input, Select } from '@/components/ui/input'
 import { Modal } from '@/components/ui/modal'
+import { ConfirmDeleteModal } from '@/components/ui/confirm-delete-modal'
 import { formatDate, isOverdue, isStale, cn } from '@/lib/utils'
 import {
   Plus, Search, ExternalLink, AlertTriangle, Clock,
-  Building2, Globe, ChevronRight, Sparkles, Download
+  Building2, Globe, ChevronRight, Sparkles, Download, Trash2
 } from 'lucide-react'
 
 interface Company {
@@ -46,6 +47,8 @@ export function CompaniesClient({ companies, filters }: { companies: Company[]; 
   const [priorityFilter, setPriorityFilter] = useState(filters.priority || '')
   const [segmentFilter, setSegmentFilter] = useState(filters.segment || '')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Company | null>(null)
+  const [localCompanies, setLocalCompanies] = useState(companies)
   const [bulkScoring, setBulkScoring] = useState(false)
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
   const router = useRouter()
@@ -76,7 +79,7 @@ export function CompaniesClient({ companies, filters }: { companies: Company[]; 
     router.refresh()
   }
 
-  const filtered = companies.filter(c => {
+  const filtered = localCompanies.filter(c => {
     if (stageFilter && c.stage !== stageFilter) return false
     if (priorityFilter && c.priority !== priorityFilter) return false
     if (segmentFilter && c.segment !== segmentFilter) return false
@@ -281,9 +284,18 @@ export function CompaniesClient({ companies, filters }: { companies: Company[]; 
                     </span>
                   </td>
                   <td className="px-2 py-3">
-                    <Link href={`/companies/${company.id}`}>
-                      <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400" />
-                    </Link>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(company) }}
+                        className="p-1 text-slate-700 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Delete company"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                      <Link href={`/companies/${company.id}`}>
+                        <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400" />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               )
@@ -291,6 +303,23 @@ export function CompaniesClient({ companies, filters }: { companies: Company[]; 
           </tbody>
         </table>
       </div>
+
+      {/* Delete Company Modal */}
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title="Delete company"
+        description={`Delete "${deleteTarget?.name}"? All associated contacts, meetings, activity, and outreach will also be permanently deleted. This cannot be undone.`}
+        confirmLabel="Delete company"
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!deleteTarget) return
+          const res = await fetch(`/api/companies/${deleteTarget.id}`, { method: 'DELETE' })
+          if (res.ok) {
+            setLocalCompanies(prev => prev.filter(c => c.id !== deleteTarget.id))
+            setDeleteTarget(null)
+          }
+        }}
+      />
 
       {/* Add Company Modal */}
       <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add Company" size="md">

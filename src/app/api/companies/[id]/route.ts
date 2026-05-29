@@ -114,16 +114,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile || !['admin', 'principal'].includes(profile.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
-    }
-
     const { error } = await supabase.from('companies').delete().eq('id', id)
     if (error) throw error
 
