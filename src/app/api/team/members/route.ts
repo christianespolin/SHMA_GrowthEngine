@@ -19,16 +19,30 @@ export async function GET() {
   const members = (users || []).map(u => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const profile = (profiles || []).find((p: any) => p.id === u.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ua = u.user_metadata as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = profile as any
+
+    // Pending = invited but email not yet confirmed
+    const isPending = !u.email_confirmed_at && !!u.invited_at
+
     return {
       id: u.id,
       email: u.email,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      full_name: (profile as any)?.full_name || (u.user_metadata as any)?.full_name || null,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      role: (profile as any)?.role || 'user',
+      full_name: p?.full_name || ua?.full_name || ua?.name || null,
+      role: p?.role || 'user',
+      status: isPending ? 'pending' : 'active',
       created_at: u.created_at,
-      last_sign_in: u.last_sign_in_at,
+      invited_at: u.invited_at || null,
+      last_sign_in: u.last_sign_in_at || null,
     }
+  })
+
+  // Active members first, then pending; newest first within each group
+  members.sort((a, b) => {
+    if (a.status !== b.status) return a.status === 'active' ? -1 : 1
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   })
 
   return NextResponse.json({ members })

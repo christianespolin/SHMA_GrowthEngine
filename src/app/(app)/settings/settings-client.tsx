@@ -5,7 +5,7 @@ import { Input, Textarea } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Modal } from '@/components/ui/modal'
 import { formatDate, formatDateRelative } from '@/lib/utils'
-import { Edit3, Save, CheckCircle2, FileSpreadsheet, Users, UserPlus } from 'lucide-react'
+import { Edit3, Save, CheckCircle2, FileSpreadsheet, Users, UserPlus, RefreshCw, Clock, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Prompt {
@@ -27,12 +27,24 @@ interface Import {
   created_at: string
 }
 
+const TEAM_ROLES = [
+  { value: 'admin',      label: 'Admin',      description: 'Full access — manages team, all data, settings' },
+  { value: 'partner',    label: 'Partner',    description: 'Senior access — pipeline, companies, contacts, reports' },
+  { value: 'consultant', label: 'Consultant', description: 'Standard access — view and update companies and contacts' },
+  { value: 'outreach',   label: 'Outreach',   description: 'Focused access — contacts, outreach, and discovery' },
+  { value: 'user',       label: 'User',       description: 'Basic read-only access' },
+] as const
+
+type TeamRoleValue = typeof TEAM_ROLES[number]['value']
+
 interface Member {
   id: string
   email: string | undefined
   full_name: string | null
   role: string
+  status: 'active' | 'pending'
   created_at: string
+  invited_at: string | null
   last_sign_in: string | null
 }
 
@@ -45,21 +57,26 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
   const [loadingMembers, setLoadingMembers] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<TeamRoleValue>('consultant')
   const [inviteStatus, setInviteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [inviteError, setInviteError] = useState<string | null>(null)
+  const [updatingRole, setUpdatingRole] = useState<string | null>(null)
 
   const categories = [...new Set(prompts.map(p => p.category))]
 
+  const fetchMembers = () => {
+    setLoadingMembers(true)
+    fetch('/api/team/members')
+      .then(r => r.json())
+      .then(data => setMembers(data.members || []))
+      .catch(() => {})
+      .finally(() => setLoadingMembers(false))
+  }
+
   useEffect(() => {
-    if (tab === 'team' && members.length === 0) {
-      setLoadingMembers(true)
-      fetch('/api/team/members')
-        .then(r => r.json())
-        .then(data => setMembers(data.members || []))
-        .catch(() => {})
-        .finally(() => setLoadingMembers(false))
-    }
-  }, [tab, members.length])
+    if (tab === 'team' && members.length === 0) fetchMembers()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab])
 
   const sendInvite = async () => {
     if (!inviteEmail.trim()) return
@@ -69,15 +86,33 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
       const res = await fetch('/api/team/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail }),
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setInviteStatus('success')
       setInviteEmail('')
+      // Refresh list to show pending invite
+      fetchMembers()
     } catch (err) {
       setInviteStatus('error')
       setInviteError(err instanceof Error ? err.message : 'Failed to send invite')
+    }
+  }
+
+  const updateRole = async (memberId: string, newRole: TeamRoleValue) => {
+    setUpdatingRole(memberId)
+    try {
+      const res = await fetch(`/api/team/members/${memberId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole }),
+      })
+      if (res.ok) {
+        setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m))
+      }
+    } finally {
+      setUpdatingRole(null)
     }
   }
 
@@ -224,19 +259,27 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium text-slate-200">Team Members</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Users with access to SHMA Growth Engine</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {members.filter(m => m.status === 'active').length} active
+                  {members.filter(m => m.status === 'pending').length > 0 && (
+                    <span className="ml-1 text-amber-500">· {members.filter(m => m.status === 'pending').length} pending</span>
+                  )}
+                </p>
               </div>
-              <Button size="sm" variant="primary" onClick={() => { setShowInviteModal(true); setInviteStatus('idle') }}>
-                <UserPlus className="h-3.5 w-3.5" /> Invite member
-              </Button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchMembers}
+                  disabled={loadingMembers}
+                  className="p-1.5 text-slate-500 hover:text-slate-300 transition-colors rounded"
+                  title="Refresh"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingMembers ? 'animate-spin' : ''}`} />
+                </button>
+                <Button size="sm" variant="primary" onClick={() => { setShowInviteModal(true); setInviteStatus('idle') }}>
+                  <UserPlus className="h-3.5 w-3.5" /> Invite member
+                </Button>
+              </div>
             </div>
-
-            {loadingMembers && (
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <div className="animate-spin h-4 w-4 border-2 border-cyan-500 border-t-transparent rounded-full" />
-                Loading members…
-              </div>
-            )}
 
             {!loadingMembers && members.length === 0 && (
               <div className="text-center py-8 text-slate-600">
@@ -245,27 +288,102 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
               </div>
             )}
 
-            <div className="space-y-2">
-              {members.map(m => (
-                <div key={m.id} className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium text-slate-200">{m.full_name || m.email || 'Unknown'}</div>
-                        <Badge variant={m.role === 'admin' ? 'success' : 'muted'}>{m.role}</Badge>
+            {/* Active members */}
+            {members.filter(m => m.status === 'active').length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium uppercase tracking-wide">
+                  <ShieldCheck className="h-3 w-3" /> Active
+                </div>
+                {members.filter(m => m.status === 'active').map(m => (
+                  <div key={m.id} className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="text-sm font-medium text-slate-200">{m.full_name || m.email || 'Unknown'}</div>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {m.email}
+                          {m.last_sign_in && (
+                            <span className="ml-2 text-slate-600">· Last login: {formatDateRelative(m.last_sign_in)}</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        {m.email}
-                        {m.last_sign_in && (
-                          <span className="ml-2 text-slate-600">· Last login: {formatDateRelative(m.last_sign_in)}</span>
+                      {/* Role selector */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {updatingRole === m.id && (
+                          <div className="animate-spin h-3.5 w-3.5 border-2 border-cyan-500 border-t-transparent rounded-full" />
                         )}
+                        <select
+                          value={m.role}
+                          onChange={e => updateRole(m.id, e.target.value as TeamRoleValue)}
+                          disabled={updatingRole === m.id}
+                          className="bg-slate-700 border border-slate-600 rounded text-xs text-slate-300 px-2 py-1 focus:outline-none focus:border-cyan-500/50 disabled:opacity-50"
+                        >
+                          {TEAM_ROLES.map(r => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
-                    <div className="text-xs text-slate-600">{formatDate(m.created_at)}</div>
                   </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pending invites */}
+            {members.filter(m => m.status === 'pending').length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5 text-xs text-amber-500/80 font-medium uppercase tracking-wide">
+                  <Clock className="h-3 w-3" /> Pending invites
                 </div>
-              ))}
-            </div>
+                {members.filter(m => m.status === 'pending').map(m => (
+                  <div key={m.id} className="bg-slate-800/50 border border-amber-500/20 rounded-lg px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm text-slate-300">{m.email}</div>
+                        <div className="text-xs text-amber-500/70 mt-0.5">
+                          Invite sent {m.invited_at ? formatDateRelative(m.invited_at) : formatDate(m.created_at)} · awaiting acceptance
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <select
+                          value={m.role}
+                          onChange={e => updateRole(m.id, e.target.value as TeamRoleValue)}
+                          disabled={updatingRole === m.id}
+                          className="bg-slate-700 border border-slate-600 rounded text-xs text-slate-300 px-2 py-1 focus:outline-none focus:border-cyan-500/50 disabled:opacity-50"
+                        >
+                          {TEAM_ROLES.map(r => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
+                        <span className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
+                          Pending
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-xs text-slate-600">
+                  Click refresh ↑ to check if pending invites have been accepted.
+                </p>
+              </div>
+            )}
+
+            {/* Role legend */}
+            <details className="group">
+              <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-400 transition-colors list-none flex items-center gap-1">
+                <span className="group-open:rotate-90 inline-block transition-transform">▶</span>
+                Role descriptions
+              </summary>
+              <div className="mt-2 space-y-1.5 pl-3 border-l border-slate-800">
+                {TEAM_ROLES.map(r => (
+                  <div key={r.value} className="flex items-start gap-2">
+                    <span className="text-xs font-medium text-slate-400 w-20 flex-shrink-0">{r.label}</span>
+                    <span className="text-xs text-slate-600">{r.description}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
           </div>
         )}
       </div>
@@ -290,19 +408,36 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
       <Modal open={showInviteModal} onClose={() => { setShowInviteModal(false); setInviteStatus('idle') }} title="Invite Team Member" size="sm">
         <div className="p-5 space-y-4">
           {inviteStatus === 'success' ? (
-            <div className="flex items-center gap-2 text-emerald-400">
-              <CheckCircle2 className="h-5 w-5" />
-              <span className="text-sm">Invite sent successfully!</span>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="text-sm">Invite sent! They&apos;ll appear as Pending until they accept.</span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => { setShowInviteModal(false); setInviteStatus('idle') }}>
+                Close
+              </Button>
             </div>
           ) : (
             <>
               <Input
                 label="Email address"
                 type="email"
-                placeholder="colleague@company.com"
+                placeholder="colleague@shma.no"
                 value={inviteEmail}
                 onChange={e => setInviteEmail(e.target.value)}
               />
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">Role</label>
+                <select
+                  value={inviteRole}
+                  onChange={e => setInviteRole(e.target.value as TeamRoleValue)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500/50"
+                >
+                  {TEAM_ROLES.map(r => (
+                    <option key={r.value} value={r.value}>{r.label} — {r.description}</option>
+                  ))}
+                </select>
+              </div>
               {inviteStatus === 'error' && inviteError && (
                 <p className="text-xs text-rose-400">{inviteError}</p>
               )}
