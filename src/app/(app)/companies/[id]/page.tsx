@@ -16,7 +16,7 @@ export default async function CompanyDetailPage({
       supabase.from('companies').select('*').eq('id', id).single(),
       supabase.from('contacts').select('*').eq('company_id', id).order('created_at', { ascending: false }),
       supabase.from('ai_research_briefs').select('*').eq('company_id', id).order('generated_at', { ascending: false }).limit(1).maybeSingle(),
-      supabase.from('outreach_messages').select('*').eq('company_id', id).order('created_at', { ascending: false }),
+      supabase.from('outreach_messages').select('*, contacts(id, name, full_name, title, role)').eq('company_id', id).order('created_at', { ascending: false }),
       supabase.from('meetings').select('*').eq('company_id', id).order('meeting_date', { ascending: false }),
       supabase.from('activity_log').select('*').eq('company_id', id).order('created_at', { ascending: false }).limit(50),
       supabase.from('contact_discovery_runs').select('*, contact_suggestions(*)').eq('company_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle(),

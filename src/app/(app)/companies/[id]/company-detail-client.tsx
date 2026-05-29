@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea, Select } from '@/components/ui/input'
@@ -47,6 +47,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
   const [showMeetingModal, setShowMeetingModal] = useState(false)
   const [showOutreachModal, setShowOutreachModal] = useState(false)
   const [loggingOutreach, setLoggingOutreach] = useState(false)
+  const [outreachJustSaved, setOutreachJustSaved] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [localActivity, setLocalActivity] = useState<Record<string, any>[]>(activity)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,6 +58,13 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
   const [localContacts, setLocalContacts] = useState<Record<string, any>[]>(contacts)
   const [editData, setEditData] = useState<Record<string, string>>({})
   const router = useRouter()
+
+  useEffect(() => {
+    if (outreachJustSaved) {
+      const timer = setTimeout(() => setOutreachJustSaved(false), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [outreachJustSaved])
 
   const startEdit = () => {
     setEditData({
@@ -147,6 +155,9 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
         setTab('fit')
       } else {
         setAiResult(data)
+        if (action === 'linkedin' || action === 'email' || action === 'warm_intro') {
+          setOutreachJustSaved(true)
+        }
       }
       router.refresh()
     } catch (err) {
@@ -296,6 +307,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
             initialContacts={localContacts}
             initialLatestRun={latestRun || null}
             brief={localBrief}
+            outreach={outreach}
           />
         )}
         {tab === 'outreach' && (
@@ -304,6 +316,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
             aiResult={aiLoading ? null : aiResult}
             loading={aiLoading === 'linkedin' || aiLoading === 'email'}
             onGenerate={(channel) => { setAiResult(null); runAI(channel) }}
+            justSaved={outreachJustSaved}
           />
         )}
         {tab === 'meetings' && (
@@ -618,11 +631,27 @@ function ResearchTab({ brief, loading, onGenerate }: { brief: Record<string, any
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function OutreachTab({ outreach, aiResult, loading, onGenerate }: {
+function parseOutreachContent(content: string): string {
+  if (!content) return ''
+  const trimmed = content.trim()
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      return parsed.first_email || parsed.connection_request || parsed.message || JSON.stringify(parsed, null, 2)
+    } catch {
+      return content
+    }
+  }
+  return content
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved }: {
   outreach: Record<string, any>[]
   aiResult: Record<string, string> | null
   loading: boolean
   onGenerate: (channel: string) => void
+  justSaved: boolean
 }) {
   const [copied, setCopied] = useState<string | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -636,7 +665,7 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate }: {
   }
 
   const markSent = async (id: string) => {
-    setMarking(id)
+    setMarking(id + '_sent')
     try {
       const res = await fetch(`/api/outreach/${id}`, {
         method: 'PATCH',
@@ -644,16 +673,67 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate }: {
         body: JSON.stringify({ status: 'sent' }),
       })
       if (res.ok) {
-        setLocalOutreach(prev => prev.map(m => m.id === id ? { ...m, status: 'sent' } : m))
+        const updated = await res.json()
+        setLocalOutreach(prev => prev.map(m => m.id === id ? { ...m, status: 'sent', sent_at: updated.sent_at } : m))
       }
     } finally {
       setMarking(null)
     }
   }
 
+  const markReplied = async (id: string) => {
+    setMarking(id + '_replied')
+    try {
+      const res = await fetch(`/api/outreach/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'replied' }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setLocalOutreach(prev => prev.map(m => m.id === id ? { ...m, status: 'replied', reply_received_at: updated.reply_received_at } : m))
+      }
+    } finally {
+      setMarking(null)
+    }
+  }
+
+  // Group messages by contact
+  const grouped: Record<string, Record<string, any>[]> = {}
+  const noContact: Record<string, any>[] = []
+  for (const msg of localOutreach) {
+    const key = msg.contact_id
+      ? msg.contact_name || msg.contacts?.full_name || msg.contacts?.name || msg.contact_id
+      : null
+    if (key) {
+      if (!grouped[key]) grouped[key] = []
+      grouped[key].push(msg)
+    } else {
+      noContact.push(msg)
+    }
+  }
+
+  const statusBadge = (msg: Record<string, any>) => {
+    if (msg.status === 'replied') return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+    if (msg.status === 'sent') return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+    return 'bg-slate-700 text-slate-400 border-slate-600'
+  }
+
+  const aiResultLabels: Record<string, string> = {
+    connection_request: 'LinkedIn Connection Request',
+    follow_up_message: 'LinkedIn Follow-up (after connection)',
+    subject: 'Email Subject',
+    first_email: 'First Email',
+    follow_up_subject: 'Follow-up Subject',
+    follow_up_email: 'Follow-up Email (7 days)',
+    request_to_connector: 'Request to Mutual Connection',
+    suggested_intro_text: 'Suggested Intro Text',
+    message: 'Message',
+  }
+
   return (
     <div className="max-w-2xl space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Button size="sm" variant="ghost" onClick={() => onGenerate('linkedin')}>
           <Sparkles className="h-3.5 w-3.5" /> LinkedIn
         </Button>
@@ -663,6 +743,11 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate }: {
         <Button size="sm" variant="ghost" onClick={() => onGenerate('warm_intro')}>
           <Sparkles className="h-3.5 w-3.5" /> Warm Intro
         </Button>
+        {justSaved && (
+          <span className="px-2 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded text-xs">
+            Saved to Outreach tab ✓
+          </span>
+        )}
       </div>
 
       {loading && (
@@ -675,28 +760,20 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate }: {
       {aiResult && !loading && (
         <div className="space-y-3">
           {Object.entries(aiResult).map(([key, value]) => {
-            if (!value) return null
-            const labels: Record<string, string> = {
-              connection_request: 'LinkedIn Connection Request',
-              follow_up_message: 'LinkedIn Follow-up (after connection)',
-              subject: 'Email Subject',
-              first_email: 'First Email',
-              follow_up_subject: 'Follow-up Subject',
-              follow_up_email: 'Follow-up Email (7 days)',
-              request_to_connector: 'Request to Mutual Connection',
-              suggested_intro_text: 'Suggested Intro Text',
-              message: 'Message',
-            }
+            if (!value || typeof value !== 'string') return null
             return (
-              <div key={key} className="bg-slate-800 border border-slate-700 rounded-lg p-4">
+              <div key={key} className="bg-slate-800 border border-slate-700 rounded-lg p-4 relative">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-medium text-cyan-400 uppercase tracking-wide">{labels[key] || key}</h4>
-                  <button
-                    onClick={() => copy(value, key)}
-                    className="text-slate-500 hover:text-slate-300 transition-colors"
-                  >
-                    {copied === key ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
-                  </button>
+                  <h4 className="text-xs font-medium text-cyan-400 uppercase tracking-wide">{aiResultLabels[key] || key}</h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded">Saved ✓</span>
+                    <button
+                      onClick={() => copy(value, key)}
+                      className="text-slate-500 hover:text-slate-300 transition-colors"
+                    >
+                      {copied === key ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
                 <p className="text-sm text-slate-300 whitespace-pre-wrap">{value}</p>
               </div>
@@ -708,35 +785,135 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate }: {
       {localOutreach.length > 0 && (
         <div>
           <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Saved Messages</h3>
-          <div className="space-y-2">
-            {localOutreach.map(msg => (
-              <div key={String(msg.id)} className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <Badge variant={msg.status === 'sent' ? 'success' : 'muted'}>{String(msg.message_type)}</Badge>
-                    {msg.status === 'sent' && <span className="text-xs text-emerald-500">✓ Sent</span>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-600">{formatDate(msg.created_at as string)}</span>
-                    {msg.status !== 'sent' && (
-                      <button
-                        onClick={() => markSent(String(msg.id))}
-                        disabled={marking === String(msg.id)}
-                        className="text-xs text-cyan-500 hover:text-cyan-300 disabled:opacity-50 flex items-center gap-1"
-                      >
-                        <Send className="h-3 w-3" />
-                        {marking === String(msg.id) ? 'Saving…' : 'Mark Sent'}
-                      </button>
-                    )}
-                  </div>
+          <div className="space-y-4">
+            {/* Contact-linked messages grouped */}
+            {Object.entries(grouped).map(([contactLabel, msgs]) => (
+              <div key={contactLabel}>
+                <div className="text-xs text-slate-500 font-medium mb-1.5 flex items-center gap-1.5">
+                  <span className="w-1 h-1 bg-slate-600 rounded-full" />
+                  {contactLabel}
+                  {msgs[0]?.contact_title && (
+                    <span className="text-slate-600">· {msgs[0].contact_title}</span>
+                  )}
                 </div>
-                {msg.subject && <div className="text-xs text-slate-400 mb-1 font-medium">{String(msg.subject)}</div>}
-                <p className="text-xs text-slate-500 line-clamp-2">{String(msg.content)}</p>
+                <div className="space-y-2 pl-3 border-l border-slate-700/50">
+                  {msgs.map(msg => (
+                    <OutreachMessageCard
+                      key={String(msg.id)}
+                      msg={msg}
+                      marking={marking}
+                      copied={copied}
+                      statusBadge={statusBadge}
+                      onMarkSent={markSent}
+                      onMarkReplied={markReplied}
+                      onCopy={copy}
+                    />
+                  ))}
+                </div>
               </div>
             ))}
+            {/* Company-level messages (no contact) */}
+            {noContact.length > 0 && (
+              <div>
+                {Object.keys(grouped).length > 0 && (
+                  <div className="text-xs text-slate-600 font-medium mb-1.5 flex items-center gap-1.5">
+                    <span className="w-1 h-1 bg-slate-700 rounded-full" />
+                    Company-level
+                  </div>
+                )}
+                <div className={cn('space-y-2', Object.keys(grouped).length > 0 && 'pl-3 border-l border-slate-700/50')}>
+                  {noContact.map(msg => (
+                    <OutreachMessageCard
+                      key={String(msg.id)}
+                      msg={msg}
+                      marking={marking}
+                      copied={copied}
+                      statusBadge={statusBadge}
+                      onMarkSent={markSent}
+                      onMarkReplied={markReplied}
+                      onCopy={copy}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function OutreachMessageCard({ msg, marking, copied, statusBadge, onMarkSent, onMarkReplied, onCopy }: {
+  msg: Record<string, any>
+  marking: string | null
+  copied: string | null
+  statusBadge: (msg: Record<string, any>) => string
+  onMarkSent: (id: string) => void
+  onMarkReplied: (id: string) => void
+  onCopy: (text: string, key: string) => void
+}) {
+  const msgId = String(msg.id)
+  const content = parseOutreachContent(String(msg.content || ''))
+  const contactDisplay = msg.contact_name || msg.contacts?.full_name || msg.contacts?.name
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+      <div className="flex items-center justify-between mb-1.5 gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={cn('px-1.5 py-0.5 rounded text-[10px] border', statusBadge(msg))}>
+            {String(msg.message_type)}
+          </span>
+          {msg.status === 'replied' && msg.reply_received_at && (
+            <span className="text-[10px] text-emerald-400">✓ Replied {formatDate(msg.reply_received_at as string)}</span>
+          )}
+          {msg.status === 'sent' && !msg.reply_received_at && msg.sent_at && (
+            <span className="text-[10px] text-cyan-400">Sent {formatDate(msg.sent_at as string)}</span>
+          )}
+          {msg.status === 'draft' && (
+            <span className="text-[10px] text-slate-600">Draft</span>
+          )}
+          {contactDisplay && !msg.contact_name && (
+            <span className="text-[10px] text-slate-500">{contactDisplay}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-600">{formatDate(msg.created_at as string)}</span>
+          {content && (
+            <button
+              onClick={() => onCopy(content, msgId)}
+              className="text-slate-600 hover:text-slate-300 transition-colors"
+            >
+              {copied === msgId ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+          )}
+        </div>
+      </div>
+      {msg.subject && <div className="text-xs text-slate-400 mb-1 font-medium">{String(msg.subject)}</div>}
+      <p className="text-xs text-slate-500 line-clamp-2">{content}</p>
+      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-700/50">
+        {msg.status !== 'sent' && msg.status !== 'replied' && (
+          <button
+            onClick={() => onMarkSent(msgId)}
+            disabled={marking === msgId + '_sent'}
+            className="text-xs text-cyan-500 hover:text-cyan-300 disabled:opacity-50 flex items-center gap-1"
+          >
+            <Send className="h-3 w-3" />
+            {marking === msgId + '_sent' ? 'Saving…' : 'Mark Sent'}
+          </button>
+        )}
+        {msg.status === 'sent' && (
+          <button
+            onClick={() => onMarkReplied(msgId)}
+            disabled={marking === msgId + '_replied'}
+            className="text-xs text-emerald-500 hover:text-emerald-300 disabled:opacity-50 flex items-center gap-1"
+          >
+            <CheckCircle2 className="h-3 w-3" />
+            {marking === msgId + '_replied' ? 'Saving…' : 'Mark Replied'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

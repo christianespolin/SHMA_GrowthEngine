@@ -16,6 +16,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       .update({
         status,
         ...(status === 'sent' ? { sent_at: new Date().toISOString() } : {}),
+        ...(status === 'replied' ? { reply_received_at: new Date().toISOString() } : {}),
       })
       .eq('id', id)
       .select('*, company_id')
@@ -28,6 +29,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         company_id: data.company_id,
         activity_type: 'outreach_sent',
         description: `Outreach marked as sent (${data.message_type})`,
+        user_id: user.id,
+      })
+      await supabase
+        .from('companies')
+        .update({ last_activity_date: new Date().toISOString() })
+        .eq('id', data.company_id)
+    }
+
+    if (status === 'replied' && data.company_id) {
+      await supabase.from('activity_log').insert({
+        company_id: data.company_id,
+        activity_type: 'outreach_replied',
+        description: `Reply received${data.contact_name ? ` from ${data.contact_name}` : ''} (${data.message_type})`,
         user_id: user.id,
       })
       await supabase

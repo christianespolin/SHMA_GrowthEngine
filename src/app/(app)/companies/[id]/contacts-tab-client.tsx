@@ -24,6 +24,7 @@ interface ContactsTabProps {
   initialContacts: AnyRecord[]
   initialLatestRun: AnyRecord | null
   brief: AnyRecord | null
+  outreach?: AnyRecord[]
 }
 
 // ============================================================
@@ -289,16 +290,20 @@ function ContactCard({
   contact,
   onEdit,
   onDoNotContact,
+  contactOutreach,
 }: {
   contact: AnyRecord
   onEdit: (c: AnyRecord) => void
   onDoNotContact: (c: AnyRecord) => void
+  contactOutreach?: AnyRecord[]
 }) {
   const [generatingOutreach, setGeneratingOutreach] = useState(false)
   const [outreachResult, setOutreachResult] = useState<AnyRecord | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [showOutreachHistory, setShowOutreachHistory] = useState(false)
 
   const cat = contact.role_category || 'Other influencer'
+  const outreachCount = contactOutreach?.length || 0
   const cfg = roleCatConfig(cat)
 
   const generateOutreach = async (messageType: string) => {
@@ -340,7 +345,16 @@ function ContactCard({
             <div className="text-xs text-slate-400 mt-0.5">{contact.title || contact.role}</div>
           )}
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 items-center">
+          {outreachCount > 0 && (
+            <button
+              onClick={() => setShowOutreachHistory(v => !v)}
+              className="text-xs text-cyan-500/80 hover:text-cyan-300 px-2 py-1 rounded hover:bg-cyan-500/10 transition-colors flex items-center gap-1"
+            >
+              Outreach ({outreachCount})
+              {showOutreachHistory ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+          )}
           <button
             onClick={() => onEdit(contact)}
             className="text-xs text-slate-500 hover:text-slate-300 px-2 py-1 rounded hover:bg-slate-700/50 transition-colors"
@@ -355,6 +369,27 @@ function ContactCard({
           </button>
         </div>
       </div>
+
+      {/* Inline outreach history */}
+      {showOutreachHistory && contactOutreach && contactOutreach.length > 0 && (
+        <div className="border border-slate-700/50 rounded-md overflow-hidden">
+          {contactOutreach.map((msg: AnyRecord) => {
+            const statusColor = msg.status === 'replied'
+              ? 'text-emerald-400'
+              : msg.status === 'sent'
+              ? 'text-cyan-400'
+              : 'text-slate-500'
+            return (
+              <div key={String(msg.id)} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-slate-700/50 last:border-0 bg-slate-900/40">
+                <span className="text-[10px] bg-slate-700/60 text-slate-400 px-1.5 py-0.5 rounded">{String(msg.message_type)}</span>
+                <span className="text-[10px] text-slate-400 flex-1 truncate">{msg.subject || msg.content?.slice?.(0, 60) || ''}</span>
+                <span className={cn('text-[10px]', statusColor)}>{msg.status}</span>
+                <span className="text-[10px] text-slate-600">{msg.created_at ? new Date(msg.created_at as string).toLocaleDateString() : ''}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Scores */}
       {(contact.decision_power_score || contact.outreach_fit_score) && (
@@ -958,6 +993,7 @@ export function ContactsTabClient({
   initialContacts,
   initialLatestRun,
   brief,
+  outreach = [],
 }: ContactsTabProps) {
   const [contacts, setContacts] = useState<AnyRecord[]>(initialContacts)
   const [latestRun, setLatestRun] = useState<AnyRecord | null>(initialLatestRun)
@@ -1085,6 +1121,7 @@ export function ContactsTabClient({
                     contact={contact}
                     onEdit={setEditingContact}
                     onDoNotContact={handleDoNotContact}
+                    contactOutreach={outreach.filter(m => m.contact_id === contact.id)}
                   />
                 ))}
               </div>
@@ -1100,6 +1137,7 @@ export function ContactsTabClient({
                     contact={contact}
                     onEdit={setEditingContact}
                     onDoNotContact={handleDoNotContact}
+                    contactOutreach={outreach.filter(m => m.contact_id === contact.id)}
                   />
                 ))}
               </div>

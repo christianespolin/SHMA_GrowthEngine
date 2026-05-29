@@ -40,6 +40,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .maybeSingle()
 
     const contactName = contact.full_name || contact.name || 'Unknown'
+    const contactTitle = contact.title || contact.role || null
     const companyName = company?.name || 'Unknown company'
     const shmaHypothesis = contact.outreach_angle || brief?.possible_aaas_concept || brief?.why_shma_relevant || ''
 
@@ -139,24 +140,84 @@ Respond as JSON: {"subject": "...", "message": "..."}`
       parsed = { content: aiResponse.content }
     }
 
-    // Save to outreach_messages
-    const content = JSON.stringify(parsed)
-    const subject = (parsed.subject as string) || `Outreach to ${contactName}`
-    const { data: savedMessage } = await supabase
-      .from('outreach_messages')
-      .insert({
-        company_id: contact.company_id,
-        contact_id: id,
-        message_type: message_type === 'call_script' ? 'linkedin' : message_type,
-        subject,
-        content,
-        status: 'draft',
-        generated_at: new Date().toISOString(),
-      })
-      .select()
-      .single()
+    // Build rows to insert based on message_type
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rowsToInsert: Record<string, any>[] = []
+    const now = new Date().toISOString()
+    const baseRow = {
+      company_id: contact.company_id,
+      contact_id: id,
+      contact_name: contactName,
+      contact_title: contactTitle,
+      channel: message_type,
+      status: 'draft',
+      generated_at: now,
+    }
 
-    return NextResponse.json({ ...parsed, outreach_message_id: savedMessage?.id })
+    if (message_type === 'linkedin') {
+      // Two rows: connection_request + follow_up
+      rowsToInsert.push({
+        ...baseRow,
+        message_type: 'linkedin',
+        subject: `LinkedIn to ${contactName}`,
+        content: (parsed.connection_request as string) || '',
+      })
+      if (parsed.follow_up_message) {
+        rowsToInsert.push({
+          ...baseRow,
+          message_type: 'follow_up',
+          subject: `LinkedIn follow-up to ${contactName}`,
+          content: parsed.follow_up_message as string,
+        })
+      }
+    } else if (message_type === 'email') {
+      // Two rows: first_email + follow_up_email
+      rowsToInsert.push({
+        ...baseRow,
+        message_type: 'email',
+        subject: (parsed.subject as string) || `Email to ${contactName}`,
+        content: (parsed.first_email as string) || '',
+      })
+      if (parsed.follow_up_email) {
+        rowsToInsert.push({
+          ...baseRow,
+          message_type: 'follow_up',
+          subject: (parsed.follow_up_subject as string) || `Follow-up to ${contactName}`,
+          content: parsed.follow_up_email as string,
+        })
+      }
+    } else if (message_type === 'call_script') {
+      // One row with JSON content (structured data)
+      rowsToInsert.push({
+        ...baseRow,
+        message_type: 'linkedin',
+        subject: `Call script for ${contactName}`,
+        content: JSON.stringify(parsed),
+      })
+    } else {
+      // follow_up: one row
+      rowsToInsert.push({
+        ...baseRow,
+        message_type: 'follow_up',
+        subject: (parsed.subject as string) || `Follow-up to ${contactName}`,
+        content: (parsed.message as string) || JSON.stringify(parsed),
+      })
+    }
+
+    const { data: insertedRows } = await supabase
+      .from('outreach_messages')
+      .insert(rowsToInsert)
+      .select()
+
+    // Log activity
+    await supabase.from('activity_log').insert({
+      company_id: contact.company_id,
+      activity_type: 'ai_outreach_generated',
+      description: `AI ${message_type} outreach generated for ${contactName}`,
+      user_id: user.id,
+    })
+
+    return NextResponse.json({ ...parsed, outreach_messages: insertedRows || [] })
   } catch (error) {
     console.error('POST contact outreach error:', error)
     return NextResponse.json({ error: 'Failed to generate outreach' }, { status: 500 })

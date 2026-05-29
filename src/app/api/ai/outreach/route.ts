@@ -34,6 +34,21 @@ export async function POST(request: NextRequest) {
             company_id, contact_id: contact_id || null,
             message_type: 'linkedin',
             content: result.connection_request,
+            contact_name: contact_name || null,
+            contact_title: contact_role || null,
+            channel,
+            tone, status: 'draft',
+            generated_at: new Date().toISOString(),
+          })
+        }
+        if (result.follow_up_message) {
+          messages.push({
+            company_id, contact_id: contact_id || null,
+            message_type: 'follow_up',
+            content: result.follow_up_message,
+            contact_name: contact_name || null,
+            contact_title: contact_role || null,
+            channel,
             tone, status: 'draft',
             generated_at: new Date().toISOString(),
           })
@@ -45,6 +60,9 @@ export async function POST(request: NextRequest) {
             message_type: 'email',
             subject: result.subject,
             content: result.first_email,
+            contact_name: contact_name || null,
+            contact_title: contact_role || null,
+            channel,
             tone, status: 'draft',
             generated_at: new Date().toISOString(),
           })
@@ -55,6 +73,9 @@ export async function POST(request: NextRequest) {
             message_type: 'follow_up',
             subject: result.follow_up_subject,
             content: result.follow_up_email,
+            contact_name: contact_name || null,
+            contact_title: contact_role || null,
+            channel,
             tone, status: 'draft',
             generated_at: new Date().toISOString(),
           })
