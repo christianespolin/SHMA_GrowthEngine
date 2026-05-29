@@ -108,6 +108,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         ai_rationale: suggestion.ai_rationale || null,
         outreach_angle: suggestion.outreach_angle || null,
         validation_tasks: suggestion.validation_tasks || [],
+        missing_information: suggestion.missing_information || [],
+        scores_json: suggestion.scores_json || {},
+        recommended_next_action: suggestion.recommended_next_action || null,
+        suggested_role_to_find: suggestion.suggested_role_to_find || null,
+        source_suggestion_id: id,
+        notes: suggestion.recommended_next_action
+          ? `Recommended next action: ${suggestion.recommended_next_action}`
+          : null,
         gdpr_status: 'Not reviewed',
         contact_status: 'Validated',
         relationship_strength: 'unknown',
