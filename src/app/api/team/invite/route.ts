@@ -16,8 +16,18 @@ export async function POST(request: NextRequest) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
+  // Derive the base URL from the incoming request so it works on any domain/preview URL.
+  // Fall back to the explicit env var, then the hardcoded production URL.
+  // Never use localhost in a redirectTo — Supabase would send invitees there.
+  const reqOrigin = request.headers.get('origin') || request.headers.get('host')
+  const isLocalhost = reqOrigin?.includes('localhost') || reqOrigin?.includes('127.0.0.1')
+  const baseUrl = isLocalhost
+    ? (process.env.NEXT_PUBLIC_APP_URL?.replace(/^http:\/\/localhost.*/, '') || 'https://shma-growth-engine.vercel.app')
+    : (reqOrigin?.startsWith('http') ? reqOrigin : `https://${reqOrigin}`)
+  const safeBaseUrl = (baseUrl || 'https://shma-growth-engine.vercel.app').replace(/\/$/, '')
+
   const { data: invited, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'https://shma-growth-engine.vercel.app'}/auth/callback`,
+    redirectTo: `${safeBaseUrl}/auth/callback`,
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
