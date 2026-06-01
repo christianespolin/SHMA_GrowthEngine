@@ -1,31 +1,45 @@
 @import "tailwindcss";
 
 /* ─── Light mode (default) ────────────────────────────────────────────────────
-   Override Tailwind v4 slate variables so every bg-slate-*, text-slate-*, and
-   border-slate-* class automatically adapts — no component edits needed.
-   The slate scale is essentially reversed: darkest becomes lightest, etc.
+   Override Tailwind v4 color variables so every bg-*, text-*, border-* class
+   adapts automatically — no component edits needed.
+
+   BACKGROUNDS  (slate 800–950): white/light-gray surfaces
+   BORDERS      (slate 700):     light dividers
+   TEXT         (slate 200–600): must stay dark enough for contrast on white
+                                 slate-500 = #64748b → 5.9:1 on white (WCAG AA ✓)
+                                 slate-600 = #94a3b8 → 2.9:1 (decorative/borders only)
+   CYAN ACCENT  (400–500):       shifted to darker values so links/nav read on white
 ──────────────────────────────────────────────────────────────────────────────*/
 :root {
+  /* Backgrounds */
   --color-slate-950: #f8fafc;
   --color-slate-900: #f1f5f9;
   --color-slate-800: #ffffff;
   --color-slate-700: #e2e8f0;
-  --color-slate-600: #cbd5e1;
-  --color-slate-500: #94a3b8;
-  --color-slate-400: #64748b;
-  --color-slate-300: #475569;
-  --color-slate-200: #334155;
-  --color-slate-100: #1e293b;
-  --color-slate-50:  #0f172a;
+
+  /* Text — shifted darker than before for WCAG contrast on white */
+  --color-slate-600: #94a3b8;   /* borders / decorative only (2.9:1) */
+  --color-slate-500: #64748b;   /* muted text (5.9:1 ✓) */
+  --color-slate-400: #475569;   /* secondary text (7.5:1 ✓) */
+  --color-slate-300: #334155;   /* body text */
+  --color-slate-200: #1e293b;   /* primary text */
+  --color-slate-100: #0f172a;
+  --color-slate-50:  #020617;
+
+  /* Cyan accent — shift to darker values so they read on white */
+  --color-cyan-400:  #0891b2;   /* nav active, links → cyan-600 equivalent */
+  --color-cyan-500:  #0e7490;   /* hover states → cyan-700 equivalent */
+  --color-cyan-300:  #06b6d4;   /* subtle accents → cyan-500 equivalent */
 
   --background: #f8fafc;
   --foreground: #1e293b;
-  --scrollbar-thumb: #cbd5e1;
-  --scrollbar-thumb-hover: #94a3b8;
+  --scrollbar-thumb: #94a3b8;
+  --scrollbar-thumb-hover: #64748b;
 }
 
 /* ─── Dark mode ───────────────────────────────────────────────────────────────
-   Restore original Tailwind v4 slate values (from build output).
+   Restore original Tailwind v4 values (from build output).
 ──────────────────────────────────────────────────────────────────────────────*/
 .dark {
   --color-slate-950: #020618;
@@ -39,6 +53,11 @@
   --color-slate-200: #e2e8f0;
   --color-slate-100: #f1f5f9;
   --color-slate-50:  #f8fafc;
+
+  /* Restore original cyan */
+  --color-cyan-400:  #22d3ee;
+  --color-cyan-500:  #06b6d4;
+  --color-cyan-300:  #67e8f9;
 
   --background: #020618;
   --foreground: #e2e8f0;
