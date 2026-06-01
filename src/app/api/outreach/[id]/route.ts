@@ -9,14 +9,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()
-    const { status } = body
+    const { status, content, subject } = body
 
     const { data, error } = await supabase
       .from('outreach_messages')
       .update({
-        status,
+        ...(status !== undefined ? { status } : {}),
+        ...(content !== undefined ? { content } : {}),
+        ...(subject !== undefined ? { subject } : {}),
         ...(status === 'sent' ? { sent_at: new Date().toISOString() } : {}),
         ...(status === 'replied' ? { reply_received_at: new Date().toISOString() } : {}),
+        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
       .select('*, company_id')

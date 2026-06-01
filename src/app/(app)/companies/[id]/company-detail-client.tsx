@@ -12,7 +12,7 @@ import { ContactsTabClient } from './contacts-tab-client'
 import { ConfirmDeleteModal } from '@/components/ui/confirm-delete-modal'
 import {
   Sparkles, Building2, Globe, MapPin, User, Mail, Phone, Link2,
-  Calendar, FileText, MessageSquare, Activity, ChevronDown, Edit3,
+  Calendar, FileText, MessageSquare, Activity, ChevronDown, ChevronUp, Edit3,
   Plus, Send, AlertTriangle, CheckCircle2, Clock, ExternalLink, Copy, Save, Trash2
 } from 'lucide-react'
 
@@ -720,6 +720,12 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved }: {
     }
   }
 
+  const updateMessage = (id: string, updates: { content: string; subject?: string }) => {
+    setLocalOutreach(prev => prev.map(m =>
+      String(m.id) === id ? { ...m, ...updates } : m
+    ))
+  }
+
   // Group messages by contact
   const grouped: Record<string, Record<string, any>[]> = {}
   const noContact: Record<string, any>[] = []
@@ -829,6 +835,7 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved }: {
                       onMarkSent={markSent}
                       onMarkReplied={markReplied}
                       onCopy={copy}
+                      onUpdate={updateMessage}
                     />
                   ))}
                 </div>
@@ -854,6 +861,7 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved }: {
                       onMarkSent={markSent}
                       onMarkReplied={markReplied}
                       onCopy={copy}
+                      onUpdate={updateMessage}
                     />
                   ))}
                 </div>
@@ -867,21 +875,49 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved }: {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function OutreachMessageCard({ msg, marking, copied, statusBadge, onMarkSent, onMarkReplied, onCopy }: {
+function OutreachMessageCard({ msg, marking, copied, statusBadge, onMarkSent, onMarkReplied, onCopy, onUpdate }: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   msg: Record<string, any>
   marking: string | null
   copied: string | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   statusBadge: (msg: Record<string, any>) => string
   onMarkSent: (id: string) => void
   onMarkReplied: (id: string) => void
   onCopy: (text: string, key: string) => void
+  onUpdate: (id: string, updates: { content: string; subject?: string }) => void
 }) {
   const msgId = String(msg.id)
   const content = parseOutreachContent(String(msg.content || ''))
   const contactDisplay = msg.contact_name || msg.contacts?.full_name || msg.contacts?.name
 
+  const [expanded, setExpanded] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editContent, setEditContent] = useState(content)
+  const [editSubject, setEditSubject] = useState(String(msg.subject || ''))
+  const [saving, setSaving] = useState(false)
+
+  const saveEdit = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/outreach/${msgId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editContent, subject: editSubject || undefined }),
+      })
+      if (res.ok) {
+        onUpdate(msgId, { content: editContent, subject: editSubject || undefined })
+        setEditing(false)
+        setExpanded(true)
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+      {/* Header row */}
       <div className="flex items-center justify-between mb-1.5 gap-2 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={cn('px-1.5 py-0.5 rounded text-[10px] border', statusBadge(msg))}>
@@ -902,38 +938,115 @@ function OutreachMessageCard({ msg, marking, copied, statusBadge, onMarkSent, on
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-slate-600">{formatDate(msg.created_at as string)}</span>
-          {content && (
+          {/* Edit button */}
+          {!editing && (
+            <button
+              onClick={() => { setEditing(true); setExpanded(true); setEditContent(content); setEditSubject(String(msg.subject || '')) }}
+              className="text-slate-600 hover:text-slate-300 transition-colors"
+              title="Edit"
+            >
+              <Edit3 className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {/* Copy button */}
+          {content && !editing && (
             <button
               onClick={() => onCopy(content, msgId)}
               className="text-slate-600 hover:text-slate-300 transition-colors"
+              title="Copy"
             >
               {copied === msgId ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
             </button>
           )}
+          {/* Expand/collapse button */}
+          {!editing && content && (
+            <button
+              onClick={() => setExpanded(e => !e)}
+              className="text-slate-600 hover:text-slate-300 transition-colors"
+              title={expanded ? 'Collapse' : 'Expand'}
+            >
+              {expanded
+                ? <ChevronUp className="h-3.5 w-3.5" />
+                : <ChevronDown className="h-3.5 w-3.5" />}
+            </button>
+          )}
         </div>
       </div>
-      {msg.subject && <div className="text-xs text-slate-400 mb-1 font-medium">{String(msg.subject)}</div>}
-      <p className="text-xs text-slate-500 line-clamp-2">{content}</p>
-      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-700/50">
-        {msg.status !== 'sent' && msg.status !== 'replied' && (
-          <button
-            onClick={() => onMarkSent(msgId)}
-            disabled={marking === msgId + '_sent'}
-            className="text-xs text-cyan-500 hover:text-cyan-300 disabled:opacity-50 flex items-center gap-1"
-          >
-            <Send className="h-3 w-3" />
-            {marking === msgId + '_sent' ? 'Saving…' : 'Mark Sent'}
-          </button>
-        )}
-        {msg.status === 'sent' && (
-          <button
-            onClick={() => onMarkReplied(msgId)}
-            disabled={marking === msgId + '_replied'}
-            className="text-xs text-emerald-500 hover:text-emerald-300 disabled:opacity-50 flex items-center gap-1"
-          >
-            <CheckCircle2 className="h-3 w-3" />
-            {marking === msgId + '_replied' ? 'Saving…' : 'Mark Replied'}
-          </button>
+
+      {/* Subject */}
+      {editing ? (
+        <input
+          value={editSubject}
+          onChange={e => setEditSubject(e.target.value)}
+          placeholder="Subject line…"
+          className="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-cyan-500/50 mb-2"
+        />
+      ) : (
+        msg.subject && <div className="text-xs text-slate-400 mb-1 font-medium">{String(msg.subject)}</div>
+      )}
+
+      {/* Content */}
+      {editing ? (
+        <textarea
+          value={editContent}
+          onChange={e => setEditContent(e.target.value)}
+          rows={8}
+          className="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500/50 resize-y leading-relaxed"
+        />
+      ) : expanded ? (
+        <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">{content}</p>
+      ) : (
+        <p
+          className="text-xs text-slate-500 line-clamp-2 cursor-pointer hover:text-slate-400 transition-colors"
+          onClick={() => setExpanded(true)}
+          title="Click to expand"
+        >
+          {content}
+        </p>
+      )}
+
+      {/* Action bar */}
+      <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-700/50">
+        {editing ? (
+          <>
+            <button
+              onClick={saveEdit}
+              disabled={saving}
+              className="text-xs text-cyan-500 hover:text-cyan-300 disabled:opacity-50 flex items-center gap-1 font-medium"
+            >
+              <Save className="h-3 w-3" />
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+            <button
+              onClick={() => { setEditing(false); setEditContent(content); setEditSubject(String(msg.subject || '')) }}
+              className="text-xs text-slate-500 hover:text-slate-300"
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            {msg.status !== 'sent' && msg.status !== 'replied' && (
+              <button
+                onClick={() => onMarkSent(msgId)}
+                disabled={marking === msgId + '_sent'}
+                className="text-xs text-cyan-500 hover:text-cyan-300 disabled:opacity-50 flex items-center gap-1"
+              >
+                <Send className="h-3 w-3" />
+                {marking === msgId + '_sent' ? 'Saving…' : 'Mark Sent'}
+              </button>
+            )}
+            {msg.status === 'sent' && (
+              <button
+                onClick={() => onMarkReplied(msgId)}
+                disabled={marking === msgId + '_replied'}
+                className="text-xs text-emerald-500 hover:text-emerald-300 disabled:opacity-50 flex items-center gap-1"
+              >
+                <CheckCircle2 className="h-3 w-3" />
+                {marking === msgId + '_replied' ? 'Saving…' : 'Mark Replied'}
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
