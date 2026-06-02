@@ -1,7 +1,15 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Sparkles, RefreshCw } from 'lucide-react'
+import { Sparkles, RefreshCw, Clock } from 'lucide-react'
+
+const STORAGE_KEY = 'shma_pipeline_analysis'
+
+interface StoredAnalysis {
+  content: string
+  model: string
+  generatedAt: string // ISO string
+}
 
 function formatMarkdown(text: string): string {
   return text
@@ -13,12 +21,32 @@ function formatMarkdown(text: string): string {
     .replace(/\n\n/g, '<br/>')
 }
 
+function formatGeneratedAt(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  }) + ' at ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}
+
 export function PipelineAnalysis() {
   const [loading, setLoading] = useState(false)
   const [content, setContent] = useState<string | null>(null)
   const [model, setModel] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [lastRun, setLastRun] = useState<Date | null>(null)
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null)
+
+  // Load persisted analysis on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        const saved: StoredAnalysis = JSON.parse(raw)
+        setContent(saved.content)
+        setModel(saved.model)
+        setGeneratedAt(saved.generatedAt)
+      }
+    } catch { /* ignore corrupt storage */ }
+  }, [])
 
   const run = async () => {
     setLoading(true)
@@ -27,9 +55,16 @@ export function PipelineAnalysis() {
       const res = await fetch('/api/ai/pipeline-analysis', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Analysis failed')
+      const now = new Date().toISOString()
       setContent(data.content)
       setModel(data.model)
-      setLastRun(new Date())
+      setGeneratedAt(now)
+      // Persist so it survives navigation and page refresh
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        content: data.content,
+        model: data.model,
+        generatedAt: now,
+      } satisfies StoredAnalysis))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong')
     } finally {
@@ -80,14 +115,16 @@ export function PipelineAnalysis() {
               className="text-sm text-slate-300 leading-relaxed"
               dangerouslySetInnerHTML={{ __html: formatMarkdown(content) }}
             />
-            {lastRun && (
-              <div className="mt-4 pt-3 border-t border-slate-700 flex items-center justify-between text-xs text-slate-600">
-                <span>Generated {lastRun.toLocaleTimeString()} · {model}</span>
-                <button onClick={run} className="text-slate-500 hover:text-slate-300 flex items-center gap-1">
-                  <RefreshCw className="h-3 w-3" /> Refresh
-                </button>
-              </div>
-            )}
+            <div className="mt-4 pt-3 border-t border-slate-700 flex items-center justify-between text-xs text-slate-600">
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-3 w-3" />
+                {generatedAt ? formatGeneratedAt(generatedAt) : 'Just now'}
+                {model && <span className="text-slate-700">· {model}</span>}
+              </span>
+              <button onClick={run} disabled={loading} className="text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors">
+                <RefreshCw className="h-3 w-3" /> Re-run
+              </button>
+            </div>
           </>
         )}
       </div>
