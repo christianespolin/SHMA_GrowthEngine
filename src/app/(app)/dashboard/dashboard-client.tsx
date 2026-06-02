@@ -80,7 +80,7 @@ function activityTypeBadgeClass(type: string): string {
   return 'bg-slate-700 text-slate-400'
 }
 
-const DASH_ANALYSIS_KEY = 'shma_dashboard_analysis'
+const DASH_ANALYSIS_KEY = 'shma_pipeline_analysis' // shared with Reports page
 
 export function DashboardClient({ stats, stageBreakdown, upcomingActions, recentlyActive, upcomingMeetings, recentActivity }: DashboardClientProps) {
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
