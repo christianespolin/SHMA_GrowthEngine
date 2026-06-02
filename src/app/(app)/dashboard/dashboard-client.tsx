@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ScoreBadge, PriorityBadge } from '@/components/ui/score-display'
@@ -80,16 +80,36 @@ function activityTypeBadgeClass(type: string): string {
   return 'bg-slate-700 text-slate-400'
 }
 
+const DASH_ANALYSIS_KEY = 'shma_dashboard_analysis'
+
 export function DashboardClient({ stats, stageBreakdown, upcomingActions, recentlyActive, upcomingMeetings, recentActivity }: DashboardClientProps) {
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
+  const [aiGeneratedAt, setAiGeneratedAt] = useState<string | null>(null)
   const [loadingAI, setLoadingAI] = useState(false)
+
+  // Restore from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DASH_ANALYSIS_KEY)
+      if (raw) {
+        const saved = JSON.parse(raw)
+        setAiAnalysis(saved.content)
+        setAiGeneratedAt(saved.generatedAt)
+      }
+    } catch { /* ignore */ }
+  }, [])
 
   const runPipelineAnalysis = async () => {
     setLoadingAI(true)
     try {
       const res = await fetch('/api/ai/pipeline-analysis', { method: 'POST' })
       const data = await res.json()
+      const now = new Date().toISOString()
       setAiAnalysis(data.content)
+      setAiGeneratedAt(now)
+      try {
+        localStorage.setItem(DASH_ANALYSIS_KEY, JSON.stringify({ content: data.content, generatedAt: now }))
+      } catch { /* storage unavailable */ }
     } catch {
       setAiAnalysis('Pipeline analysis failed. Check your API key configuration.')
     } finally {
@@ -172,10 +192,20 @@ export function DashboardClient({ stats, stageBreakdown, upcomingActions, recent
               </div>
             )}
             {aiAnalysis && (
-              <div
-                className="ai-content text-sm text-slate-300 leading-relaxed max-h-96 overflow-y-auto"
-                dangerouslySetInnerHTML={{ __html: formatMarkdown(aiAnalysis) }}
-              />
+              <>
+                <div
+                  className="ai-content text-sm text-slate-300 leading-relaxed max-h-96 overflow-y-auto"
+                  dangerouslySetInnerHTML={{ __html: formatMarkdown(aiAnalysis) }}
+                />
+                {aiGeneratedAt && (
+                  <div className="mt-3 pt-2 border-t border-slate-700 flex items-center gap-1.5 text-xs text-slate-600">
+                    <Clock className="h-3 w-3" />
+                    {new Date(aiGeneratedAt).toLocaleDateString('en-GB', {
+                      weekday: 'long', day: 'numeric', month: 'long'
+                    })} at {new Date(aiGeneratedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
