@@ -48,6 +48,14 @@ export function PipelineAnalysis() {
     } catch { /* ignore corrupt storage */ }
   }, [])
 
+  const persist = (payload: StoredAnalysis) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+    } catch {
+      // Private browsing or storage full — content stays in state for this session
+    }
+  }
+
   const run = async () => {
     setLoading(true)
     setError(null)
@@ -59,12 +67,7 @@ export function PipelineAnalysis() {
       setContent(data.content)
       setModel(data.model)
       setGeneratedAt(now)
-      // Persist so it survives navigation and page refresh
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        content: data.content,
-        model: data.model,
-        generatedAt: now,
-      } satisfies StoredAnalysis))
+      persist({ content: data.content, model: data.model, generatedAt: now })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong')
     } finally {
