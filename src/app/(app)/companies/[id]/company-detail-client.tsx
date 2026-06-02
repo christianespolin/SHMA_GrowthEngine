@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { formatDate, formatDateRelative, cn } from '@/lib/utils'
 import { PIPELINE_STAGES, SEGMENTS, NEXT_ACTION_TYPES } from '@/lib/types'
 import { ContactsTabClient } from './contacts-tab-client'
+import { FinancialTabClient } from './financial-tab-client'
+import { NextActionPanel } from './next-action-panel'
 import { ConfirmDeleteModal } from '@/components/ui/confirm-delete-modal'
 import {
   Sparkles, Building2, Globe, MapPin, User, Mail, Phone, Link2,
@@ -31,7 +33,7 @@ const SCORE_LABELS: Record<string, string> = {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function CompanyDetailClient({ company, contacts, brief, outreach, meetings, activity, latestRun }: {
+export function CompanyDetailClient({ company, contacts, brief, outreach, meetings, activity, latestRun, financialProfile }: {
   company: Record<string, any>
   contacts: Record<string, any>[]
   brief: Record<string, any> | null
@@ -39,8 +41,9 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
   meetings: Record<string, any>[]
   activity: Record<string, any>[]
   latestRun?: Record<string, any> | null
+  financialProfile?: Record<string, any> | null
 }) {
-  const [tab, setTab] = useState<'overview' | 'fit' | 'research' | 'contacts' | 'outreach' | 'meetings' | 'activity'>('overview')
+  const [tab, setTab] = useState<'overview' | 'fit' | 'research' | 'contacts' | 'outreach' | 'meetings' | 'activity' | 'financial'>('overview')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState<string | null>(null)
@@ -225,6 +228,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
     { id: 'outreach', label: `Outreach (${outreach.length})` },
     { id: 'meetings', label: `Meetings (${meetings.length})` },
     { id: 'activity', label: 'Activity' },
+    { id: 'financial', label: 'Financial & Funding' },
   ]
 
   return (
@@ -286,6 +290,14 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
           const res = await fetch(`/api/companies/${localCompany.id}`, { method: 'DELETE' })
           if (res.ok) router.push('/companies')
         }}
+      />
+
+      {/* Next Best Action Banner */}
+      <NextActionPanel
+        company={localCompany}
+        contacts={localContacts}
+        financialProfile={financialProfile || null}
+        onTabChange={(t) => setTab(t as typeof tab)}
       />
 
       {/* Tabs */}
@@ -352,6 +364,13 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
         )}
         {tab === 'activity' && (
           <ActivityTab activity={localActivity} onLogOutreach={() => setShowOutreachModal(true)} />
+        )}
+        {tab === 'financial' && (
+          <FinancialTabClient
+            companyId={String(localCompany.id)}
+            company={localCompany}
+            initialProfile={financialProfile || null}
+          />
         )}
       </div>
 

@@ -36,15 +36,14 @@ export const PIPELINE_STAGES: PipelineStage[] = [
 ]
 
 export const SEGMENTS = [
-  'Industrial technology and machinery',
-  'Warehouse automation and intralogistics',
-  'Robotics and automation',
-  'Maritime, offshore and subsea',
-  'Energy, charging, HVAC and building technology',
-  'Medtech and labtech',
-  'AV, control rooms and workplace technology',
-  'PE-owned B2B companies',
-  'Other',
+  'Warehouse automation & intralogistics',
+  'Robotics & industrial automation',
+  'Industrial technology & machinery',
+  'Maritime, offshore & subsea',
+  'Energy, charging & building technology',
+  'Medtech & labtech',
+  'AV, control rooms & workplace technology',
+  'Other asset-heavy B2B technology',
 ] as const
 
 export type Segment = (typeof SEGMENTS)[number]
@@ -316,28 +315,50 @@ export const DISCOVERY_SEGMENTS = [
 ] as const
 
 export const OWNERSHIP_TYPES = [
+  'PE-owned / investor-backed',
   'Founder-owned',
   'Family-owned',
-  'PE-owned',
-  'Investor-backed',
-  'Listed',
-  'Corporate-owned',
+  'Listed / public company',
+  'Subsidiary / division',
+  'Corporate spin-off',
   'Unknown',
-  'Any',
 ] as const
 
 export const STRATEGIC_TRIGGERS = [
-  'Wants recurring revenue',
-  'Needs growth',
+  'PE-owned / investor-backed',
+  'Board-driven growth mandate',
+  'Founder transition',
+  'Growth pressure',
+  'Recurring revenue ambition',
   'Margin pressure',
-  'Customer CapEx friction',
-  'Complex sales cycles',
-  'Strong installed base',
-  'Service revenue opportunity',
-  'Financing could unlock sales',
-  'Needs differentiation',
   'International expansion',
-  'Board / PE value creation pressure',
+  'Customer CapEx friction',
+  'Service revenue opportunity',
+  'Competitor pressure',
+  'New leadership',
+] as const
+
+export const FINANCIAL_DATA_SOURCES = [
+  'Manual entry',
+  'Annual report (uploaded)',
+  'Proff.no',
+  'Brønnøysundregistrene',
+  'Creditsafe',
+  'Dun & Bradstreet',
+  'Creditinfo',
+  'Companies House',
+  'AI-interpreted',
+  'Other',
+] as const
+
+export const FEEDBACK_TYPES = [
+  'Bug',
+  'Improvement',
+  'Wrong AI output',
+  'Bad outreach',
+  'Missing data',
+  'Process issue',
+  'Strategic suggestion',
   'Other',
 ] as const
 

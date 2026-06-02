@@ -11,7 +11,7 @@ export default async function CompanyDetailPage({
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: company }, { data: contacts }, { data: brief }, { data: outreach }, { data: meetings }, { data: activity }, { data: latestRun }] =
+  const [{ data: company }, { data: contacts }, { data: brief }, { data: outreach }, { data: meetings }, { data: activity }, { data: latestRun }, { data: financialProfile }] =
     await Promise.all([
       supabase.from('companies').select('*').eq('id', id).single(),
       supabase.from('contacts').select('*').eq('company_id', id).order('created_at', { ascending: false }),
@@ -20,6 +20,7 @@ export default async function CompanyDetailPage({
       supabase.from('meetings').select('*').eq('company_id', id).order('meeting_date', { ascending: false }),
       supabase.from('activity_log').select('*').eq('company_id', id).order('created_at', { ascending: false }).limit(50),
       supabase.from('contact_discovery_runs').select('*, contact_suggestions(*)').eq('company_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('financial_profiles').select('*').eq('company_id', id).maybeSingle(),
     ])
 
   if (!company) notFound()
@@ -38,6 +39,7 @@ export default async function CompanyDetailPage({
         meetings={meetings || []}
         activity={activity || []}
         latestRun={latestRun}
+        financialProfile={financialProfile}
       />
     </>
   )
