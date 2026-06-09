@@ -29,17 +29,15 @@ export async function PATCH(
     )
 
 
-    // Update auth user (email and/or password) via admin API
-    const authUpdates: Record<string, string> = {}
+    // Update auth user — always confirm email so admin-managed users can always log in
+    if (password && password.length < 6) {
+      return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
+    }
+    const authUpdates: Record<string, unknown> = { email_confirm: true }
     if (email) authUpdates.email = email
-    if (password) {
-      if (password.length < 6) return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
-      authUpdates.password = password
-    }
-    if (Object.keys(authUpdates).length > 0) {
-      const { error: authErr } = await adminClient.auth.admin.updateUserById(id, authUpdates)
-      if (authErr) throw authErr
-    }
+    if (password) authUpdates.password = password
+    const { error: authErr } = await adminClient.auth.admin.updateUserById(id, authUpdates)
+    if (authErr) throw authErr
 
     // Update profile (role and/or full_name) — use admin client to bypass RLS
     const profileUpdates: Record<string, string> = {}
