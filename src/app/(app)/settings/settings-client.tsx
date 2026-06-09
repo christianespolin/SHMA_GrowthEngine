@@ -5,7 +5,7 @@ import { Input, Textarea } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Modal } from '@/components/ui/modal'
 import { formatDate, formatDateRelative } from '@/lib/utils'
-import { Edit3, Save, CheckCircle2, FileSpreadsheet, Users, UserPlus, RefreshCw, Clock, ShieldCheck } from 'lucide-react'
+import { Edit3, Save, CheckCircle2, FileSpreadsheet, Users, UserPlus, RefreshCw, ShieldCheck, Trash2, Eye, EyeOff, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Prompt {
@@ -55,12 +55,24 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
   const [saving, setSaving] = useState(false)
   const [members, setMembers] = useState<Member[]>([])
   const [loadingMembers, setLoadingMembers] = useState(false)
-  const [showInviteModal, setShowInviteModal] = useState(false)
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<TeamRoleValue>('consultant')
-  const [inviteStatus, setInviteStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addName, setAddName] = useState('')
+  const [addEmail, setAddEmail] = useState('')
+  const [addPassword, setAddPassword] = useState('')
+  const [addRole, setAddRole] = useState<TeamRoleValue>('consultant')
+  const [showPassword, setShowPassword] = useState(false)
+  const [addStatus, setAddStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [addError, setAddError] = useState<string | null>(null)
   const [updatingRole, setUpdatingRole] = useState<string | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
+  const [editingMember, setEditingMember] = useState<Member | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editPassword, setEditPassword] = useState('')
+  const [editRole, setEditRole] = useState<TeamRoleValue>('consultant')
+  const [showEditPassword, setShowEditPassword] = useState(false)
+  const [editStatus, setEditStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [editError, setEditError] = useState<string | null>(null)
 
   const categories = [...new Set(prompts.map(p => p.category))]
 
@@ -78,25 +90,91 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
 
-  const sendInvite = async () => {
-    if (!inviteEmail.trim()) return
-    setInviteStatus('loading')
-    setInviteError(null)
+  const resetAddModal = () => {
+    setAddName('')
+    setAddEmail('')
+    setAddPassword('')
+    setAddRole('consultant')
+    setAddStatus('idle')
+    setAddError(null)
+    setShowPassword(false)
+  }
+
+  const createUser = async () => {
+    if (!addEmail.trim() || !addPassword.trim()) return
+    setAddStatus('loading')
+    setAddError(null)
     try {
-      const res = await fetch('/api/team/invite', {
+      const res = await fetch('/api/team/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+        body: JSON.stringify({ email: addEmail, password: addPassword, full_name: addName, role: addRole }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setInviteStatus('success')
-      setInviteEmail('')
-      // Refresh list to show pending invite
+      setAddStatus('success')
       fetchMembers()
     } catch (err) {
-      setInviteStatus('error')
-      setInviteError(err instanceof Error ? err.message : 'Failed to send invite')
+      setAddStatus('error')
+      setAddError(err instanceof Error ? err.message : 'Failed to create user')
+    }
+  }
+
+  const openEditMember = (m: Member) => {
+    setEditingMember(m)
+    setEditName(m.full_name || '')
+    setEditEmail(m.email || '')
+    setEditPassword('')
+    setEditRole(m.role as TeamRoleValue)
+    setShowEditPassword(false)
+    setEditStatus('idle')
+    setEditError(null)
+  }
+
+  const saveMember = async () => {
+    if (!editingMember) return
+    setEditStatus('loading')
+    setEditError(null)
+    try {
+      const body: Record<string, string> = {
+        role: editRole,
+        full_name: editName,
+        email: editEmail,
+      }
+      if (editPassword) body.password = editPassword
+      const res = await fetch(`/api/team/members/${editingMember.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setMembers(prev => prev.map(m => m.id === editingMember.id
+        ? { ...m, full_name: editName || null, email: editEmail, role: editRole }
+        : m
+      ))
+      setEditingMember(null)
+    } catch (err) {
+      setEditStatus('error')
+      setEditError(err instanceof Error ? err.message : 'Failed to save changes')
+    } finally {
+      setEditStatus(s => s === 'loading' ? 'idle' : s)
+    }
+  }
+
+  const removeMember = async (id: string) => {
+    if (!confirm('Remove this user? They will lose access immediately.')) return
+    setRemovingId(id)
+    try {
+      const res = await fetch(`/api/team/members/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setMembers(prev => prev.filter(m => m.id !== id))
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Failed to remove user')
+      }
+    } finally {
+      setRemovingId(null)
     }
   }
 
@@ -275,8 +353,8 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
                 >
                   <RefreshCw className={`h-3.5 w-3.5 ${loadingMembers ? 'animate-spin' : ''}`} />
                 </button>
-                <Button size="sm" variant="primary" onClick={() => { setShowInviteModal(true); setInviteStatus('idle') }}>
-                  <UserPlus className="h-3.5 w-3.5" /> Invite member
+                <Button size="sm" variant="primary" onClick={() => { setShowAddModal(true); resetAddModal() }}>
+                  <UserPlus className="h-3.5 w-3.5" /> Add member
                 </Button>
               </div>
             </div>
@@ -288,27 +366,23 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
               </div>
             )}
 
-            {/* Active members */}
-            {members.filter(m => m.status === 'active').length > 0 && (
+            {members.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium uppercase tracking-wide">
-                  <ShieldCheck className="h-3 w-3" /> Active
+                  <ShieldCheck className="h-3 w-3" /> Members
                 </div>
-                {members.filter(m => m.status === 'active').map(m => (
+                {members.map(m => (
                   <div key={m.id} className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div className="text-sm font-medium text-slate-200">{m.full_name || m.email || 'Unknown'}</div>
-                        </div>
+                        <div className="text-sm font-medium text-slate-200">{m.full_name || m.email || 'Unknown'}</div>
                         <div className="text-xs text-slate-500 mt-0.5">
-                          {m.email}
+                          {m.full_name ? m.email : null}
                           {m.last_sign_in && (
                             <span className="ml-2 text-slate-600">· Last login: {formatDateRelative(m.last_sign_in)}</span>
                           )}
                         </div>
                       </div>
-                      {/* Role selector */}
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {updatingRole === m.id && (
                           <div className="animate-spin h-3.5 w-3.5 border-2 border-cyan-500 border-t-transparent rounded-full" />
@@ -323,49 +397,28 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
                             <option key={r.value} value={r.value}>{r.label}</option>
                           ))}
                         </select>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Pending invites */}
-            {members.filter(m => m.status === 'pending').length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5 text-xs text-amber-500/80 font-medium uppercase tracking-wide">
-                  <Clock className="h-3 w-3" /> Pending invites
-                </div>
-                {members.filter(m => m.status === 'pending').map(m => (
-                  <div key={m.id} className="bg-slate-800/50 border border-amber-500/20 rounded-lg px-4 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-sm text-slate-300">{m.email}</div>
-                        <div className="text-xs text-amber-500/70 mt-0.5">
-                          Invite sent {m.invited_at ? formatDateRelative(m.invited_at) : formatDate(m.created_at)} · awaiting acceptance
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <select
-                          value={m.role}
-                          onChange={e => updateRole(m.id, e.target.value as TeamRoleValue)}
-                          disabled={updatingRole === m.id}
-                          className="bg-slate-700 border border-slate-600 rounded text-xs text-slate-300 px-2 py-1 focus:outline-none focus:border-cyan-500/50 disabled:opacity-50"
+                        <button
+                          onClick={() => openEditMember(m)}
+                          className="p-1 text-slate-600 hover:text-cyan-400 transition-colors rounded"
+                          title="Edit member"
                         >
-                          {TEAM_ROLES.map(r => (
-                            <option key={r.value} value={r.value}>{r.label}</option>
-                          ))}
-                        </select>
-                        <span className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded">
-                          Pending
-                        </span>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => removeMember(m.id)}
+                          disabled={removingId === m.id}
+                          className="p-1 text-slate-600 hover:text-rose-400 transition-colors disabled:opacity-40 rounded"
+                          title="Remove user"
+                        >
+                          {removingId === m.id
+                            ? <div className="animate-spin h-3.5 w-3.5 border-2 border-rose-400 border-t-transparent rounded-full" />
+                            : <Trash2 className="h-3.5 w-3.5" />
+                          }
+                        </button>
                       </div>
                     </div>
                   </div>
                 ))}
-                <p className="text-xs text-slate-600">
-                  Click refresh ↑ to check if pending invites have been accepted.
-                </p>
               </div>
             )}
 
@@ -405,32 +458,128 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
         </div>
       </Modal>
 
-      <Modal open={showInviteModal} onClose={() => { setShowInviteModal(false); setInviteStatus('idle') }} title="Invite Team Member" size="sm">
+      <Modal open={!!editingMember} onClose={() => setEditingMember(null)} title="Edit Team Member" size="sm">
         <div className="p-5 space-y-4">
-          {inviteStatus === 'success' ? (
+          <Input
+            label="Full name"
+            type="text"
+            placeholder="Jane Doe"
+            value={editName}
+            onChange={e => setEditName(e.target.value)}
+          />
+          <Input
+            label="Email address"
+            type="email"
+            placeholder="jane@shma.no"
+            value={editEmail}
+            onChange={e => setEditEmail(e.target.value)}
+          />
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">New password <span className="text-slate-600 font-normal">(leave blank to keep current)</span></label>
+            <div className="relative">
+              <input
+                type={showEditPassword ? 'text' : 'password'}
+                placeholder="Min. 6 characters"
+                value={editPassword}
+                onChange={e => setEditPassword(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 pr-9 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50"
+              />
+              <button
+                type="button"
+                onClick={() => setShowEditPassword(p => !p)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                {showEditPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Role</label>
+            <select
+              value={editRole}
+              onChange={e => setEditRole(e.target.value as TeamRoleValue)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500/50"
+            >
+              {TEAM_ROLES.map(r => (
+                <option key={r.value} value={r.value}>{r.label} — {r.description}</option>
+              ))}
+            </select>
+          </div>
+          {editStatus === 'error' && editError && (
+            <p className="text-xs text-rose-400">{editError}</p>
+          )}
+          <div className="flex gap-2">
+            <Button
+              variant="primary"
+              onClick={saveMember}
+              loading={editStatus === 'loading'}
+              className="flex-1"
+              disabled={!editEmail.trim()}
+            >
+              <Save className="h-3.5 w-3.5" /> Save changes
+            </Button>
+            <Button variant="ghost" onClick={() => setEditingMember(null)}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={showAddModal} onClose={() => { setShowAddModal(false); resetAddModal() }} title="Add Team Member" size="sm">
+        <div className="p-5 space-y-4">
+          {addStatus === 'success' ? (
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-emerald-400">
                 <CheckCircle2 className="h-5 w-5" />
-                <span className="text-sm">Invite sent! They&apos;ll appear as Pending until they accept.</span>
+                <span className="text-sm">User created. They can log in with the credentials you set.</span>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => { setShowInviteModal(false); setInviteStatus('idle') }}>
-                Close
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="primary" size="sm" onClick={() => resetAddModal()} className="flex-1">
+                  Add another
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShowAddModal(false); resetAddModal() }}>
+                  Done
+                </Button>
+              </div>
             </div>
           ) : (
             <>
               <Input
+                label="Full name"
+                type="text"
+                placeholder="Jane Doe"
+                value={addName}
+                onChange={e => setAddName(e.target.value)}
+              />
+              <Input
                 label="Email address"
                 type="email"
-                placeholder="colleague@shma.no"
-                value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
+                placeholder="jane@shma.no"
+                value={addEmail}
+                onChange={e => setAddEmail(e.target.value)}
               />
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Min. 6 characters"
+                    value={addPassword}
+                    onChange={e => setAddPassword(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 pr-9 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(p => !p)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1.5">Role</label>
                 <select
-                  value={inviteRole}
-                  onChange={e => setInviteRole(e.target.value as TeamRoleValue)}
+                  value={addRole}
+                  onChange={e => setAddRole(e.target.value as TeamRoleValue)}
                   className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500/50"
                 >
                   {TEAM_ROLES.map(r => (
@@ -438,20 +587,20 @@ export function SettingsClient({ prompts, imports }: { prompts: Prompt[]; import
                   ))}
                 </select>
               </div>
-              {inviteStatus === 'error' && inviteError && (
-                <p className="text-xs text-rose-400">{inviteError}</p>
+              {addStatus === 'error' && addError && (
+                <p className="text-xs text-rose-400">{addError}</p>
               )}
               <div className="flex gap-2">
                 <Button
                   variant="primary"
-                  onClick={sendInvite}
-                  loading={inviteStatus === 'loading'}
+                  onClick={createUser}
+                  loading={addStatus === 'loading'}
                   className="flex-1"
-                  disabled={!inviteEmail.trim()}
+                  disabled={!addEmail.trim() || !addPassword.trim()}
                 >
-                  <UserPlus className="h-3.5 w-3.5" /> Send Invite
+                  <UserPlus className="h-3.5 w-3.5" /> Create user
                 </Button>
-                <Button variant="ghost" onClick={() => setShowInviteModal(false)}>Cancel</Button>
+                <Button variant="ghost" onClick={() => { setShowAddModal(false); resetAddModal() }}>Cancel</Button>
               </div>
             </>
           )}
