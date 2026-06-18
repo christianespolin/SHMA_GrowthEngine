@@ -15,6 +15,55 @@ const COUNTRIES = [
   'United States', 'Canada', 'Australia', 'Singapore', 'Any',
 ]
 
+const GENERATION_STEPS = [
+  { after: 0,   message: 'Searching the web for relevant companies…',        sub: 'Running live web search to find real candidates' },
+  { after: 22,  message: 'Analysing your search criteria…',                  sub: 'Mapping criteria to SHMA servitization profile' },
+  { after: 40,  message: 'Generating company candidates…',                   sub: 'Claude is researching each company individually' },
+  { after: 75,  message: 'Scoring and ranking candidates…',                  sub: 'Evaluating fit, opportunity and confidence scores' },
+  { after: 110, message: 'Finalising results…',                              sub: 'Almost done — preparing your candidate list' },
+  { after: 150, message: 'Still running — complex search takes time…',       sub: 'Deep searches can take up to 3 minutes' },
+  { after: 200, message: 'Nearly there…',                                    sub: 'Claude is wrapping up the analysis' },
+]
+
+function GeneratingState() {
+  const [elapsed, setElapsed] = useState(0)
+  const [stepIdx, setStepIdx] = useState(0)
+
+  useEffect(() => {
+    const start = Date.now()
+    const timer = setInterval(() => {
+      const secs = Math.floor((Date.now() - start) / 1000)
+      setElapsed(secs)
+      const next = [...GENERATION_STEPS].reverse().findIndex(s => secs >= s.after)
+      if (next >= 0) setStepIdx(GENERATION_STEPS.length - 1 - next)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const step = GENERATION_STEPS[stepIdx]
+  const mins = Math.floor(elapsed / 60)
+  const secs = elapsed % 60
+  const elapsedStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+      <div className="w-16 h-16 bg-cyan-500/10 border border-cyan-500/20 rounded-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
+      </div>
+      <div className="text-center space-y-1.5 max-w-sm">
+        <h3 className="text-base font-semibold text-slate-200">{step.message}</h3>
+        <p className="text-sm text-slate-500">{step.sub}</p>
+        <p className="text-xs text-slate-600 mt-3">Elapsed: {elapsedStr} · Typical range: 1–3 minutes</p>
+      </div>
+      <div className="flex gap-1.5">
+        {GENERATION_STEPS.slice(0, 5).map((_, i) => (
+          <div key={i} className={cn('h-1 rounded-full transition-all duration-500', i <= stepIdx ? 'w-8 bg-cyan-500' : 'w-3 bg-slate-700')} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function SliderField({
   label, value, onChange,
 }: { label: string; value: number; onChange: (v: number) => void }) {
@@ -212,15 +261,7 @@ export function DiscoveryFormClient() {
       <Header title="New Discovery Search" subtitle="Configure AI-powered client candidate generation" />
       <div className="flex-1 overflow-auto p-5">
         {loading ? (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-            <div className="w-16 h-16 bg-cyan-500/10 border border-cyan-500/20 rounded-full flex items-center justify-center">
-              <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
-            </div>
-            <div className="text-center">
-              <h3 className="text-base font-semibold text-slate-200 mb-1">Claude is generating client candidates...</h3>
-              <p className="text-sm text-slate-500">This may take 30–90 seconds depending on depth and count.</p>
-            </div>
-          </div>
+          <GeneratingState />
         ) : (
           <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-5 pb-10">
             <div className="flex items-center gap-3 mb-2">
