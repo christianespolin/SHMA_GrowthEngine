@@ -196,7 +196,7 @@ export function TargetUniverseDetailClient({ universe, companies: initial }: {
                       <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
                         <td className="py-2 pr-4">
                           <div className="font-medium text-slate-200">{c.company_name}</div>
-                          {c.website && <a href={c.website} target="_blank" rel="noreferrer" className="text-slate-600 hover:text-cyan-400 transition-colors">{c.website.replace(/^https?:\/\//, '')}</a>}
+                          {c.website && <a href={c.website.startsWith('http') ? c.website : `https://${c.website}`} target="_blank" rel="noreferrer" className="text-slate-600 hover:text-cyan-400 transition-colors">{c.website.replace(/^https?:\/\//, '')}</a>}
                         </td>
                         <td className="py-2 pr-4 text-slate-400">{c.country || '—'}</td>
                         <td className="py-2 pr-4 text-slate-400">{c.industry || '—'}</td>

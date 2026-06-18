@@ -470,7 +470,7 @@ function OverviewTab({ company, editing, editData, setEditData }: {
           <InfoRow icon={<Building2 />} label="Segment" value={String(company.segment || '—')} />
           <InfoRow icon={<MapPin />} label="Country" value={String(company.country || '—')} />
           <InfoRow icon={<Globe />} label="Website" value={company.website ? (
-            <a href={String(company.website)} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+            <a href={String(company.website).startsWith('http') ? String(company.website) : `https://${company.website}`} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
               {String(company.website)} <ExternalLink className="h-3 w-3" />
             </a>
           ) : '—'} />

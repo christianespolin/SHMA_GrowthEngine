@@ -235,7 +235,7 @@ export function CompaniesClient({ companies, filters }: { companies: Company[]; 
                           )}
                           {company.website && (
                             <a
-                              href={company.website}
+                              href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={e => e.stopPropagation()}

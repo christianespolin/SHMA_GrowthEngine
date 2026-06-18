@@ -38,7 +38,7 @@ function GeneratingState() {
     return () => clearInterval(timer)
   }, [])
 
-  const step = GENERATION_STEPS[stepIdx]
+  const step = GENERATION_STEPS[Math.min(stepIdx, GENERATION_STEPS.length - 1)]
   const mins = Math.floor(elapsed / 60)
   const secs = elapsed % 60
   const elapsedStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
