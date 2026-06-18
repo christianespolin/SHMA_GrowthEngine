@@ -19,13 +19,12 @@ async function _fetchWebContext(criteria: Record<string, unknown>): Promise<stri
   const message = await (client.messages.create as any)({
     model,
     max_tokens: 1000,
-    timeout: WEB_SEARCH_TIMEOUT_MS,
     tools: [{ type: 'web_search_20250305', name: 'web_search' }],
     messages: [{
       role: 'user',
       content: `Search for real B2B companies in the ${segments} sector in ${locationStr} that sell capital-intensive equipment or asset-heavy solutions. Focus on mid-market ($10M–$500M revenue). List 8 specific companies with name, website, and one-sentence description.`,
     }],
-  })
+  }, { timeout: WEB_SEARCH_TIMEOUT_MS })
 
   const textBlocks = (message.content || [])
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,7 +50,6 @@ async function _fetchContactContext(companyName: string, website?: string): Prom
   const message = await (client.messages.create as any)({
     model,
     max_tokens: 2000,
-    timeout: CONTACT_SEARCH_TIMEOUT_MS,
     tools: [{ type: 'web_search_20250305', name: 'web_search' }],
     messages: [{
       role: 'user',
@@ -70,7 +68,7 @@ For each real person you find, extract:
 
 IMPORTANT: Only include people you are highly confident actually work or recently worked at ${companyName}. Do NOT invent names. List up to 12 people with their exact titles and source URLs where possible.`,
     }],
-  })
+  }, { timeout: CONTACT_SEARCH_TIMEOUT_MS })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const textBlocks = (message.content || [])
