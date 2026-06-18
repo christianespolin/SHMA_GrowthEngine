@@ -8,9 +8,10 @@ import { Badge } from '@/components/ui/badge'
 import { Modal } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/input'
+import { EngagedModal } from '@/components/origination/engaged-modal'
 import { formatDateRelative, isOverdue, isStale, cn } from '@/lib/utils'
 import {
-  AlertTriangle, Clock, Sparkles, Globe, Building2, ChevronRight
+  AlertTriangle, Clock, Sparkles, ChevronRight, ShieldAlert,
 } from 'lucide-react'
 
 const STAGE_COLORS: Record<string, string> = {
@@ -31,6 +32,9 @@ const STAGE_COLORS: Record<string, string> = {
   'Disqualified': 'border-rose-500/50',
 }
 
+const ENGAGED_AND_BEYOND = ['Engaged', 'Meeting Booked', 'Discovery Completed', 'Proposal / Agreement', 'Signed', 'Onboarding']
+const REQUIRES_APPROVED_ORIGINATION = ['Proposal / Agreement', 'Signed']
+
 interface MoveModalState {
   companyId: string
   companyName: string
@@ -45,29 +49,11 @@ export function KanbanBoard({ initialGrouped }: { initialGrouped: Record<string,
   const [moveModal, setMoveModal] = useState<MoveModalState | null>(null)
   const [moveNote, setMoveNote] = useState('')
   const [pendingMove, setPendingMove] = useState<{ draggableId: string; destination: { droppableId: string; index: number }; source: { droppableId: string; index: number } } | null>(null)
+  const [engagedModal, setEngagedModal] = useState<MoveModalState | null>(null)
+  // Track origination status per company (fetched lazily)
+  const [originationStatus, setOriginationStatus] = useState<Record<string, string>>({})
 
-  const onDragEnd = useCallback((result: DropResult) => {
-    const { source, destination, draggableId } = result
-    if (!destination || destination.droppableId === source.droppableId) return
-
-    const company = Object.values(grouped).flat().find(c => (c as Record<string, unknown>).id === draggableId) as Record<string, unknown>
-    if (!company) return
-
-    setPendingMove({ draggableId, destination, source })
-    setMoveModal({
-      companyId: String(company.id),
-      companyName: String(company.name),
-      fromStage: source.droppableId,
-      toStage: destination.droppableId,
-    })
-    setMoveNote('')
-  }, [grouped])
-
-  const confirmMove = async () => {
-    if (!moveModal || !pendingMove) return
-
-    const { source, destination, draggableId } = pendingMove
-
+  const applyMove = useCallback((draggableId: string, source: { droppableId: string; index: number }, destination: { droppableId: string; index: number }, stageNote?: string) => {
     setGrouped(prev => {
       const newGrouped = { ...prev }
       const sourceItems = [...(newGrouped[source.droppableId] as unknown[])]
@@ -79,16 +65,67 @@ export function KanbanBoard({ initialGrouped }: { initialGrouped: Record<string,
       return newGrouped
     })
 
-    await fetch(`/api/companies/${draggableId}`, {
+    return fetch(`/api/companies/${draggableId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         stage: destination.droppableId,
-        stage_note: moveNote || undefined,
+        stage_note: stageNote || undefined,
         last_activity_date: new Date().toISOString(),
       }),
     })
+  }, [])
 
+  const onDragEnd = useCallback((result: DropResult) => {
+    const { source, destination, draggableId } = result
+    if (!destination || destination.droppableId === source.droppableId) return
+
+    const company = Object.values(grouped).flat().find(c => (c as Record<string, unknown>).id === draggableId) as Record<string, unknown>
+    if (!company) return
+
+    const toStage = destination.droppableId
+
+    // Intercept move to Engaged — open origination modal
+    if (toStage === 'Engaged' && source.droppableId !== 'Engaged') {
+      setPendingMove({ draggableId, destination, source })
+      setEngagedModal({
+        companyId: String(company.id),
+        companyName: String(company.name),
+        fromStage: source.droppableId,
+        toStage,
+      })
+      return
+    }
+
+    // Warn if moving to Proposal/Signed without approved origination
+    const origStatus = originationStatus[String(company.id)]
+    if (REQUIRES_APPROVED_ORIGINATION.includes(toStage) && origStatus && !['Approved', 'Locked'].includes(origStatus)) {
+      setPendingMove({ draggableId, destination, source })
+      setMoveModal({
+        companyId: String(company.id),
+        companyName: String(company.name),
+        fromStage: source.droppableId,
+        toStage,
+      })
+      setMoveNote('')
+      return
+    }
+
+    // Normal move
+    setPendingMove({ draggableId, destination, source })
+    setMoveModal({
+      companyId: String(company.id),
+      companyName: String(company.name),
+      fromStage: source.droppableId,
+      toStage,
+    })
+    setMoveNote('')
+  }, [grouped, originationStatus])
+
+  const confirmMove = async () => {
+    if (!moveModal || !pendingMove) return
+    const { source, destination, draggableId } = pendingMove
+    await applyMove(draggableId, source, destination, moveNote)
     setMoveModal(null)
     setPendingMove(null)
     setMoveNote('')
@@ -100,16 +137,38 @@ export function KanbanBoard({ initialGrouped }: { initialGrouped: Record<string,
     setMoveNote('')
   }
 
+  const handleEngagedConfirm = async (data: { origination: Record<string, unknown>; allocations: unknown[] }) => {
+    if (!pendingMove || !engagedModal) return
+
+    // Save origination
+    const res = await fetch('/api/origination', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const json = await res.json()
+    if (!res.ok) throw new Error(json.error || 'Failed to save origination')
+
+    // Track origination status
+    setOriginationStatus(prev => ({ ...prev, [engagedModal.companyId]: 'Draft' }))
+
+    const { source, destination, draggableId } = pendingMove
+    await applyMove(draggableId, source, destination, 'Moved to Engaged')
+
+    setEngagedModal(null)
+    setPendingMove(null)
+  }
+
   return (
     <>
       <div className="flex-1 overflow-hidden">
         <DragDropContext onDragEnd={onDragEnd}>
           <div className="kanban-board h-full px-5 py-4">
             {PIPELINE_STAGES.map(stage => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const items = (grouped[stage] || []) as Record<string, any>[]
               return (
                 <div key={stage} className={cn('kanban-column flex flex-col', 'min-h-0')}>
-                  {/* Column Header */}
                   <div className={cn('rounded-t-lg border-t-2 bg-slate-800/80 border-x border-slate-700 px-3 py-2.5 flex-shrink-0', STAGE_COLORS[stage])}>
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-slate-300 truncate">{stage}</span>
@@ -119,7 +178,6 @@ export function KanbanBoard({ initialGrouped }: { initialGrouped: Record<string,
                     </div>
                   </div>
 
-                  {/* Cards */}
                   <Droppable droppableId={stage}>
                     {(provided, snapshot) => (
                       <div
@@ -130,30 +188,32 @@ export function KanbanBoard({ initialGrouped }: { initialGrouped: Record<string,
                           snapshot.isDraggingOver && 'bg-slate-700/30'
                         )}
                       >
-                        {items.map((company, index) => (
-                          <Draggable key={String(company.id)} draggableId={String(company.id)} index={index}>
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={cn(
-                                  'bg-slate-800 border border-slate-700 rounded-md p-2.5 cursor-grab active:cursor-grabbing',
-                                  'hover:border-slate-600 transition-colors',
-                                  snapshot.isDragging && 'shadow-xl border-cyan-500/50 rotate-1'
-                                )}
-                              >
-                                <KanbanCard company={company} />
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
+                        {items.map((company, index) => {
+                          const origStatus = originationStatus[String(company.id)]
+                          const showOrigWarn = ENGAGED_AND_BEYOND.includes(stage) &&
+                            (!origStatus || !['Approved', 'Locked'].includes(origStatus))
+                          return (
+                            <Draggable key={String(company.id)} draggableId={String(company.id)} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={cn(
+                                    'bg-slate-800 border border-slate-700 rounded-md p-2.5 cursor-grab active:cursor-grabbing',
+                                    'hover:border-slate-600 transition-colors',
+                                    snapshot.isDragging && 'shadow-xl border-cyan-500/50 rotate-1'
+                                  )}
+                                >
+                                  <KanbanCard company={company} showOrigWarn={showOrigWarn} />
+                                </div>
+                              )}
+                            </Draggable>
+                          )
+                        })}
                         {provided.placeholder}
-
                         {items.length === 0 && (
-                          <div className="flex items-center justify-center h-16 text-slate-700 text-xs">
-                            Drop here
-                          </div>
+                          <div className="flex items-center justify-center h-16 text-slate-700 text-xs">Drop here</div>
                         )}
                       </div>
                     )}
@@ -165,13 +225,19 @@ export function KanbanBoard({ initialGrouped }: { initialGrouped: Record<string,
         </DragDropContext>
       </div>
 
-      {/* Move Confirmation Modal */}
-      <Modal
-        open={!!moveModal}
-        onClose={cancelMove}
-        title="Move Company"
-        size="sm"
-      >
+      {/* Engaged origination modal */}
+      {engagedModal && (
+        <EngagedModal
+          open={!!engagedModal}
+          companyId={engagedModal.companyId}
+          companyName={engagedModal.companyName}
+          onClose={() => { setEngagedModal(null); setPendingMove(null) }}
+          onConfirm={handleEngagedConfirm}
+        />
+      )}
+
+      {/* Standard move modal */}
+      <Modal open={!!moveModal} onClose={cancelMove} title="Move Company" size="sm">
         {moveModal && (
           <div className="p-5 space-y-4">
             <p className="text-sm text-slate-300">
@@ -179,6 +245,14 @@ export function KanbanBoard({ initialGrouped }: { initialGrouped: Record<string,
               <span className="text-slate-400">{moveModal.fromStage}</span> to{' '}
               <span className="text-cyan-400">{moveModal.toStage}</span>
             </p>
+            {REQUIRES_APPROVED_ORIGINATION.includes(moveModal.toStage) && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5 flex items-start gap-2">
+                <ShieldAlert className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-300">
+                  Origination not yet approved for this company. Moving to <strong>{moveModal.toStage}</strong> should normally require approved origination. Proceeding will be logged as an Admin override.
+                </p>
+              </div>
+            )}
             <Textarea
               label="Add a note (optional)"
               placeholder="What happened? Any context for this move…"
@@ -198,7 +272,7 @@ export function KanbanBoard({ initialGrouped }: { initialGrouped: Record<string,
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function KanbanCard({ company }: { company: Record<string, any> }) {
+function KanbanCard({ company, showOrigWarn }: { company: Record<string, any>; showOrigWarn?: boolean }) {
   const stale = isStale(company.last_activity_date as string | null)
   const overdue = isOverdue(company.next_action_date as string | null)
 
@@ -228,6 +302,11 @@ function KanbanCard({ company }: { company: Record<string, any> }) {
         )}
         {company.pe_owned === 'yes' && <Badge variant="info">PE</Badge>}
         {company.ai_researched && <Sparkles className="h-2.5 w-2.5 text-purple-400" aria-label="AI researched" />}
+        {showOrigWarn && (
+          <span title="Origination not approved" className="flex items-center gap-0.5 text-amber-400">
+            <ShieldAlert className="h-2.5 w-2.5" />
+          </span>
+        )}
       </div>
 
       {company.next_action && (

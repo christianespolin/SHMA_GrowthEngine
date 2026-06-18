@@ -13,15 +13,71 @@ export default async function DashboardPage() {
 
   const all = companies || []
 
+  // Target Universe counts
+  const { data: tuCompanies } = await supabase
+    .from('target_universe_companies')
+    .select('universe_status, target_universe_id')
+
+  const tuAll = tuCompanies || []
+
+  // Active TU ids
+  const { data: activeUniverses } = await supabase
+    .from('target_universes')
+    .select('id, estimated_total_count, actual_total_count, status')
+    .in('status', ['Active', 'Screening'])
+
+  const activeIds = new Set((activeUniverses || []).map(u => u.id))
+  const activeTuCompanies = tuAll.filter(c => activeIds.has(c.target_universe_id))
+
+  const targetUniverseCount = (activeUniverses || []).reduce((sum, u) =>
+    sum + (u.actual_total_count || u.estimated_total_count || 0), 0)
+
+  // Origination not approved
+  const { data: originations } = await supabase
+    .from('opportunity_origination')
+    .select('id, company_id, approval_status')
+
+  const { data: allocations } = await supabase
+    .from('origination_commission_allocations')
+    .select('opportunity_origination_id, allocation_percentage')
+
+  const engagedAndBeyond = all.filter(c =>
+    ['Engaged', 'Meeting Booked', 'Discovery Completed', 'Proposal / Agreement', 'Signed', 'Onboarding'].includes(c.stage)
+  )
+
+  const originationNotApproved = engagedAndBeyond.filter(c => {
+    const orig = (originations || []).find(o => o.company_id === c.id)
+    if (!orig) return true
+    if (!['Approved', 'Locked'].includes(orig.approval_status)) return true
+    const allocs = (allocations || []).filter(a => a.opportunity_origination_id === orig.id)
+    const total = allocs.reduce((s, a) => s + Number(a.allocation_percentage), 0)
+    return Math.abs(total - 8) > 0.01
+  }).length
+
   const stats = {
+    // Target universe funnel
+    target_universe: targetUniverseCount,
+    long_list: activeTuCompanies.filter(c => c.universe_status === 'Long List / Screened Target').length,
+    ai_qualified: activeTuCompanies.filter(c => c.universe_status === 'AI Qualified Target').length,
+    validated_targets: activeTuCompanies.filter(c => c.universe_status === 'Validated Target').length,
+    qualified_targets: all.filter(c => ['Qualified Target', 'Contact Identified', 'Warm Intro / Outreach Ready', 'Outreach Sent', 'Engaged', 'Meeting Booked', 'Discovery Completed', 'Proposal / Agreement', 'Signed', 'Onboarding'].includes(c.stage)).length,
+    // Active sales funnel
+    engaged: all.filter(c => ['Engaged', 'Meeting Booked', 'Discovery Completed', 'Proposal / Agreement', 'Signed', 'Onboarding'].includes(c.stage)).length,
+    meetings_booked: all.filter(c => c.stage === 'Meeting Booked').length,
+    signed_clients: all.filter(c => c.stage === 'Signed').length,
+    // Secondary
+    outreach_ready: all.filter(c => c.stage === 'Warm Intro / Outreach Ready').length,
+    missing_contact_data: all.filter(c =>
+      ['Qualified Target', 'Contact Identified'].includes(c.stage) && !c.primary_contact_email
+    ).length,
+    stale_opportunities: all.filter(c =>
+      isStale(c.last_activity_date) && !['Disqualified', 'Nurture', 'Signed'].includes(c.stage)
+    ).length,
+    origination_not_approved: originationNotApproved,
+    // Legacy
     total_companies: all.length,
     a_priority: all.filter(c => c.priority === 'A').length,
-    qualified_targets: all.filter(c => ['Qualified Target', 'Contact Identified', 'Warm Intro / Outreach Ready', 'Outreach Sent', 'Engaged', 'Meeting Booked', 'Discovery Completed', 'Proposal / Agreement', 'Signed', 'Onboarding'].includes(c.stage)).length,
-    meetings_booked: all.filter(c => c.stage === 'Meeting Booked').length,
-    discovery_completed: all.filter(c => c.stage === 'Discovery Completed').length,
     proposals_active: all.filter(c => c.stage === 'Proposal / Agreement').length,
-    signed_clients: all.filter(c => c.stage === 'Signed').length,
-    stale_leads: all.filter(c => isStale(c.last_activity_date) && !['Disqualified', 'Nurture', 'Signed'].includes(c.stage)).length,
     avg_fit_score: all.filter(c => c.shma_fit_score).length > 0
       ? Math.round(all.filter(c => c.shma_fit_score).reduce((sum, c) => sum + c.shma_fit_score, 0) / all.filter(c => c.shma_fit_score).length * 10) / 10
       : 0,
@@ -49,7 +105,6 @@ export default async function DashboardPage() {
     .sort((a, b) => new Date(b.last_activity_date).getTime() - new Date(a.last_activity_date).getTime())
     .slice(0, 5)
 
-  // Upcoming meetings (next 14 days)
   const twoWeeksOut = new Date()
   twoWeeksOut.setDate(twoWeeksOut.getDate() + 14)
   const { data: upcomingMeetings } = await supabase
@@ -60,7 +115,6 @@ export default async function DashboardPage() {
     .order('meeting_date', { ascending: true })
     .limit(5)
 
-  // Recent activity (last 10 entries)
   const { data: recentActivity } = await supabase
     .from('activity_log')
     .select('*, companies(id, name)')
@@ -69,7 +123,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <Header title="Dashboard" subtitle="Pipeline overview and AI recommendations" />
+      <Header title="Dashboard" subtitle="Commercial operating system — pipeline, targets and origination" />
       <DashboardClient
         stats={stats}
         stageBreakdown={stageBreakdown}
