@@ -61,9 +61,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Build and call AI
     const webContext = await enrichDiscoveryCriteria(search.criteria_json || {})
+    const numberRequested = Math.min(search.number_requested || 15, 20)
     const prompt = buildDiscoveryPrompt({
       criteria: search.criteria_json,
-      number_requested: search.number_requested || 25,
+      number_requested: numberRequested,
       search_depth: search.search_depth || 'standard',
       mode: search.mode || 'generate',
       existing_companies: existingNames,
@@ -73,10 +74,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     let aiResponse = null
 
     try {
-      // 4-minute timeout — gives Claude plenty of time while leaving headroom
-      // before Vercel's 5-minute maxDuration kills the function
-      const AI_TIMEOUT_MS = 240_000
-      aiResponse = await callClaude(prompt, undefined, 8192, AI_TIMEOUT_MS)
+      // Cap at ~300 tokens per company + overhead. 20 companies × 300 = 6000 tokens.
+      const maxTokens = Math.min(numberRequested * 350 + 500, 6000)
+      const AI_TIMEOUT_MS = 120_000
+      aiResponse = await callClaude(prompt, undefined, maxTokens, AI_TIMEOUT_MS)
       suggestions = parseJsonArray(aiResponse.content)
 
       // Retry once with repair prompt if parse failed

@@ -16,13 +16,11 @@ const COUNTRIES = [
 ]
 
 const GENERATION_STEPS = [
-  { after: 0,   message: 'Searching the web for relevant companies…',        sub: 'Running live web search to find real candidates' },
-  { after: 22,  message: 'Analysing your search criteria…',                  sub: 'Mapping criteria to SHMA servitization profile' },
-  { after: 40,  message: 'Generating company candidates…',                   sub: 'Claude is researching each company individually' },
-  { after: 75,  message: 'Scoring and ranking candidates…',                  sub: 'Evaluating fit, opportunity and confidence scores' },
-  { after: 110, message: 'Finalising results…',                              sub: 'Almost done — preparing your candidate list' },
-  { after: 150, message: 'Still running — complex search takes time…',       sub: 'Deep searches can take up to 3 minutes' },
-  { after: 200, message: 'Nearly there…',                                    sub: 'Claude is wrapping up the analysis' },
+  { after: 0,   message: 'Web search running…',              sub: 'Finding real companies online to seed the list (~20s)' },
+  { after: 22,  message: 'Claude is generating candidates…', sub: 'One AI call — writing all company profiles (60–90s)' },
+  { after: 70,  message: 'Still generating…',                sub: 'Writing analysis for each company' },
+  { after: 100, message: 'Nearly done…',                     sub: 'Should complete any moment now' },
+  { after: 115, message: 'Taking longer than expected…',     sub: 'Try fewer companies or Quick depth if this times out' },
 ]
 
 function GeneratingState() {
