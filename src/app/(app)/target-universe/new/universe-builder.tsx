@@ -146,11 +146,12 @@ function useValidation(f: FormState) {
 
 function SummaryCard({ f, aiResult }: { f: FormState; aiResult: Record<string, unknown> | null }) {
   const { level, score, warnings, canRun } = useValidation(f)
-  const levelCfg = {
+  const levelCfgMap: Record<string, { label: string; bar: string; text: string }> = {
     weak:   { label: 'Weak',   bar: 'bg-rose-500',    text: 'text-rose-400' },
     good:   { label: 'Good',   bar: 'bg-amber-500',   text: 'text-amber-400' },
     strong: { label: 'Strong', bar: 'bg-emerald-500', text: 'text-emerald-400' },
-  }[level]
+  }
+  const levelCfg = levelCfgMap[level] ?? levelCfgMap.weak
 
   const geos = [...f.geography_presets, ...f.geography_notes.split(',').map(s => s.trim()).filter(Boolean)]
 

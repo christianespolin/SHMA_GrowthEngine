@@ -133,11 +133,12 @@ function SummaryCard({ f, aiApplied }: { f: FormState; aiApplied: boolean }) {
 
   const score = [hasDesc, hasInclude || !!f.reference_text.trim(), hasGeo, hasRelevance, hasAvoid, hasOwnership].filter(Boolean).length
   const level = score >= 5 ? 'strong' : score >= 3 ? 'good' : 'weak'
-  const levelCfg = {
+  const levelCfgMap: Record<string, { label: string; bar: string; text: string }> = {
     weak:   { label: 'Weak',   bar: 'bg-rose-500',    text: 'text-rose-400' },
     good:   { label: 'Good',   bar: 'bg-amber-500',   text: 'text-amber-400' },
     strong: { label: 'Strong', bar: 'bg-emerald-500', text: 'text-emerald-400' },
-  }[level]
+  }
+  const levelCfg = levelCfgMap[level] ?? levelCfgMap.weak
 
   const warnings: string[] = []
   if (!hasDesc && !hasInclude) warnings.push('No description or include criteria')
