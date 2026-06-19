@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/header'
 import {
-  MessageSquarePlus, Mail, Linkedin, Copy, CheckCircle2,
+  MessageSquarePlus, Mail, Copy, CheckCircle2,
   ExternalLink, ChevronDown, ChevronUp, Building2,
 } from 'lucide-react'
 
@@ -44,7 +44,7 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 function ChannelIcon({ type }: { type: string }) {
-  if (type === 'linkedin') return <Linkedin className="w-3.5 h-3.5 text-blue-400" />
+  if (type === 'linkedin') return <span className="text-xs font-bold text-blue-400">in</span>
   return <Mail className="w-3.5 h-3.5 text-slate-400" />
 }
 
