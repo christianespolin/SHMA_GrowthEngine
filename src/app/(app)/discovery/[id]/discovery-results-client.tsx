@@ -10,7 +10,7 @@ import { Header } from '@/components/layout/header'
 import { PIPELINE_STAGES, REJECTION_REASONS } from '@/lib/types'
 import {
   ChevronDown, ChevronUp, Check, X, Bookmark, ExternalLink,
-  AlertTriangle, ArrowLeft, Globe, RefreshCw, Download, Loader2
+  AlertTriangle, ArrowLeft, Globe, RefreshCw, Download, Loader2, FlaskConical,
 } from 'lucide-react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -86,16 +86,41 @@ function SuggestionCard({
   onAccept,
   onReject,
   onSave,
+  onResearched,
 }: {
   suggestion: Suggestion
   onAccept: (id: string) => void
   onReject: (id: string, reason: string) => void
   onSave: (id: string) => void
+  onResearched: (id: string, updated: Suggestion) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [showRejectMenu, setShowRejectMenu] = useState(false)
   const [selectedRejection, setSelectedRejection] = useState('')
   const [acting, setActing] = useState(false)
+  const [researching, setResearching] = useState(false)
+  const [researchError, setResearchError] = useState<string | null>(null)
+
+  const hasResearch = suggestion.ai_research_status === 'completed'
+
+  const handleResearch = async () => {
+    setResearching(true)
+    setResearchError(null)
+    try {
+      const res = await fetch(`/api/discovery/suggestions/${suggestion.id}/research`, { method: 'POST' })
+      if (res.ok) {
+        const updated = await res.json()
+        onResearched(suggestion.id, updated)
+        setExpanded(true)
+      } else {
+        setResearchError('Research failed — try again')
+      }
+    } catch {
+      setResearchError('Research failed — try again')
+    } finally {
+      setResearching(false)
+    }
+  }
 
   const scores = suggestion.scores_json || {}
 
@@ -205,13 +230,27 @@ function SuggestionCard({
 
         {/* Actions row */}
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
-          >
-            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            {expanded ? 'Hide details' : 'Why this company?'}
-          </button>
+          {hasResearch ? (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              {expanded ? 'Hide research' : 'View research'}
+            </button>
+          ) : (
+            <button
+              onClick={handleResearch}
+              disabled={researching}
+              className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition-colors disabled:opacity-50"
+            >
+              {researching
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <FlaskConical className="h-3.5 w-3.5" />}
+              {researching ? 'Researching…' : 'Deep Research'}
+            </button>
+          )}
+          {researchError && <span className="text-xs text-rose-400">{researchError}</span>}
 
           <div className="flex-1" />
 
@@ -289,8 +328,8 @@ function SuggestionCard({
         </div>
       </div>
 
-      {/* Expanded details */}
-      {expanded && (
+      {/* Expanded details — only after deep research */}
+      {expanded && hasResearch && (
         <div className="border-t border-slate-700/50 px-4 py-4 space-y-4">
           {/* SHMA fit reason */}
           {suggestion.shma_fit_reason && (
@@ -502,6 +541,10 @@ export function DiscoveryResultsClient({ search, initialSuggestions }: Props) {
     await patchSuggestion(id, { status: 'saved_for_later' })
   }
 
+  const handleResearched = (id: string, updated: Suggestion) => {
+    setSuggestions(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s))
+  }
+
   const runSearch = async () => {
     setRunning(true)
     try {
@@ -643,6 +686,7 @@ export function DiscoveryResultsClient({ search, initialSuggestions }: Props) {
                 onAccept={handleAccept}
                 onReject={handleReject}
                 onSave={handleSave}
+                onResearched={handleResearched}
               />
             ))}
           </div>

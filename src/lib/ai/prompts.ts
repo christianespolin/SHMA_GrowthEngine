@@ -510,14 +510,13 @@ DISQUALIFIERS — Avoid companies that are:
 ${criteriaText}
 
 IMPORTANT INSTRUCTIONS:
-1. Do NOT suggest companies simply because they are in the right industry. Explain the specific servitization logic.
-2. Be specific about the possible As-a-Service concept (e.g., "Equipment-as-a-Service where customers pay per scan instead of buying the scanner" NOT just "XaaS model").
-3. Clearly distinguish: KNOWN INFO (from training data / user input) vs AI HYPOTHESES (reasonable but unverified) vs MISSING INFO (gaps to validate).
-4. Do NOT invent specific revenue figures, ownership structures or executive names unless they are very well-known public facts.
-5. Confidence level should reflect how well you know this company and how well-evidenced the servitization thesis is.
-6. Be strict on scores. A score of 5 should be genuinely exceptional. Most companies should score 3–4 on most criteria.
+1. Do NOT suggest companies just because they are in the right industry — explain the specific servitization logic.
+2. Be strict on scores. A 5 should be genuinely exceptional. Most companies score 3–4.
+3. Do NOT invent specific revenue figures or executive names.
 
-Return a JSON array of exactly ${params.mode === 'enrich' ? 'all provided' : params.number_requested} company suggestions. Each entry must follow this schema:
+This is a QUALIFICATION pass — brief output only. Full research happens separately per company.
+
+Return a JSON array of exactly ${params.mode === 'enrich' ? 'all provided' : params.number_requested} company suggestions. Each entry:
 
 {
   "company_name": "string",
@@ -526,41 +525,17 @@ Return a JSON array of exactly ${params.mode === 'enrich' ? 'all provided' : par
   "region": "string or null",
   "segment": "string",
   "subsegment": "string or null",
-  "description": "1-2 sentence description",
-  "what_they_sell": "string — one sentence",
-  "why_they_fit_shma": "string — specific servitization rationale, 1-2 sentences",
-  "possible_as_a_service_concept": "string — specific XaaS concept (e.g. pay-per-scan, uptime guarantee, managed fleet)",
-  "customer_capex_barrier": "string — one sentence",
-  "service_support_potential": "string — one sentence",
-  "software_data_monitoring_potential": "string — one sentence",
-  "financing_logic": "string — one sentence",
-  "strategic_trigger": "string — why now, one sentence",
-  "suggested_decision_makers": ["2-3 role titles only"],
-  "outreach_angle": "string — one sentence first message angle",
-  "scores": {
-    "asset_intensity": 1-5,
-    "customer_upfront_investment": 1-5,
-    "technical_complexity": 1-5,
-    "service_support_potential": 1-5,
-    "software_data_monitoring_potential": 1-5,
-    "standardization_potential": 1-5,
-    "residual_value_redeployment_potential": 1-5,
-    "recurring_revenue_potential": 1-5,
-    "strategic_trigger_strength": 1-5,
-    "commercial_value_to_shma": 1-5
-  },
+  "description": "1-2 sentences",
+  "what_they_sell": "one sentence",
+  "why_they_fit_shma": "1-2 sentences — specific servitization rationale",
+  "possible_as_a_service_concept": "one sentence — specific XaaS concept",
   "shma_fit_score": 1-5,
   "opportunity_score": 1-5,
   "confidence_score": 1-5,
   "overall_priority": "A-priority" | "B-priority" | "C-priority" | "Nurture" | "Needs validation" | "Disqualified",
   "confidence_level": "High" | "Medium" | "Low",
-  "known_information": ["max 3 key facts"],
-  "ai_hypotheses": ["max 2 reasonable assumptions"],
-  "missing_information": ["max 2 key gaps"],
-  "validation_tasks": ["max 2 specific validation tasks"],
-  "ai_rationale": "string — 1-2 sentence overall assessment",
-  "recommendation": "string — one concrete next action"
+  "ai_rationale": "1 sentence"
 }
 
-Return ONLY a valid JSON array. No markdown, no explanation, no prefix text. Start directly with [ and end with ].`
+Return ONLY a valid JSON array. No markdown, no explanation. Start with [ and end with ].`
 }

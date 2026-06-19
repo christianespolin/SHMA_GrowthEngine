@@ -74,8 +74,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     let aiResponse = null
 
     try {
-      // Each company profile is ~700 tokens with all schema fields. Add 2000 overhead.
-      const maxTokens = Math.min(numberRequested * 800 + 2000, 20000)
+      // Qualification schema only (~150 tokens/company). Full research is per-company on demand.
+      const maxTokens = Math.min(numberRequested * 200 + 1000, 8000)
       const AI_TIMEOUT_MS = 180_000
       aiResponse = await callClaude(prompt, undefined, maxTokens, AI_TIMEOUT_MS)
       suggestions = parseJsonArray(aiResponse.content)
