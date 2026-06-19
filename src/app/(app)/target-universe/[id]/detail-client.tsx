@@ -27,6 +27,19 @@ interface Universe {
   id: string; name: string; description: string | null; scope_definition: string | null
   estimated_total_count: number | null; actual_total_count: number | null; status: string
   geography: string[] | null; industries: string[] | null; data_source_type: string
+  search_mode: string | null; industry_presets: string[] | null
+  include_industries_text: string | null; exclude_industries_text: string | null
+  reference_companies_text: string | null; country_presets: string[] | null
+  region_notes: string | null; ownership_filters: string[] | null
+  strategic_triggers: string[] | null; min_revenue: number | null; max_revenue: number | null
+  revenue_currency: string | null; revenue_notes: string | null
+  min_employees: number | null; max_employees: number | null
+  shma_fit_requirements_json: Record<string, number> | null
+  funding_requirements_json: Record<string, unknown> | null
+  exclusion_criteria_json: Record<string, boolean> | null
+  other_exclusions_text: string | null; expected_universe_size: string | null
+  search_depth: string | null; ai_structured_criteria_json: Record<string, unknown> | null
+  ai_structured_at: string | null
 }
 
 interface TUCompany {
@@ -102,13 +115,53 @@ export function TargetUniverseDetailClient({ universe, companies: initial }: {
           <ChevronLeft className="w-3.5 h-3.5" /> Target Universe
         </Link>
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-lg font-semibold text-slate-100">{universe.name}</h1>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg font-semibold text-slate-100">{universe.name}</h1>
+              {universe.search_mode && (
+                <span className="text-xs px-2 py-0.5 bg-cyan-500/10 border border-cyan-500/20 rounded-full text-cyan-400">{universe.search_mode}</span>
+              )}
+            </div>
             {universe.scope_definition && (
-              <p className="text-xs text-slate-500 mt-1">{universe.scope_definition}</p>
+              <p className="text-xs text-slate-400 mt-1 max-w-3xl">{universe.scope_definition}</p>
+            )}
+            {/* Rich criteria summary */}
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-500">
+              {(universe.geography?.length || universe.region_notes) && (
+                <span><Globe2 className="w-3 h-3 inline mr-1" />
+                  {[...(universe.geography || []), universe.region_notes].filter(Boolean).join(', ')}
+                </span>
+              )}
+              {(universe.industries?.length || universe.include_industries_text) && (
+                <span>Includes: {[...(universe.industries || []), universe.include_industries_text].filter(Boolean).join(', ')}</span>
+              )}
+              {universe.exclude_industries_text && (
+                <span className="text-rose-500/70">Excludes: {universe.exclude_industries_text}</span>
+              )}
+              {universe.reference_companies_text && (
+                <span>Similar to: {universe.reference_companies_text}</span>
+              )}
+              {(universe.min_revenue || universe.max_revenue) && (
+                <span>Revenue: {[universe.min_revenue && `${universe.revenue_currency || 'EUR'} ${universe.min_revenue}m+`, universe.max_revenue && `to ${universe.max_revenue}m`].filter(Boolean).join(' ')}</span>
+              )}
+              {universe.ownership_filters?.length && (
+                <span>Ownership: {universe.ownership_filters.join(', ')}</span>
+              )}
+              {universe.expected_universe_size && universe.expected_universe_size !== 'Unknown' && (
+                <span>Est. size: {universe.expected_universe_size}</span>
+              )}
+              {universe.search_depth && (
+                <span>Depth: {universe.search_depth}</span>
+              )}
+            </div>
+            {universe.ai_structured_criteria_json && (
+              <div className="mt-2 text-xs text-purple-400/70 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> AI criteria structured
+                {universe.ai_structured_at && ` · ${new Date(universe.ai_structured_at).toLocaleDateString()}`}
+              </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Button size="sm" variant="ghost">
               <Download className="w-3.5 h-3.5" /> Export
             </Button>
