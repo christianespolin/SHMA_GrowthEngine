@@ -517,7 +517,7 @@ IMPORTANT INSTRUCTIONS:
 5. Confidence level should reflect how well you know this company and how well-evidenced the servitization thesis is.
 6. Be strict on scores. A score of 5 should be genuinely exceptional. Most companies should score 3–4 on most criteria.
 
-Return a JSON array of exactly ${params.mode === 'enrich' ? 'all provided' : params.number_requested} company suggestions. Each entry must strictly follow this schema:
+Return a JSON array of exactly ${params.mode === 'enrich' ? 'all provided' : params.number_requested} company suggestions. Each entry must follow this schema:
 
 {
   "company_name": "string",
@@ -526,17 +526,17 @@ Return a JSON array of exactly ${params.mode === 'enrich' ? 'all provided' : par
   "region": "string or null",
   "segment": "string",
   "subsegment": "string or null",
-  "description": "2-3 sentence description",
-  "what_they_sell": "string",
-  "why_they_fit_shma": "string — specific servitization rationale",
-  "possible_as_a_service_concept": "string — specific XaaS concept, not generic",
-  "customer_capex_barrier": "string — describe the upfront cost or complexity faced by customers",
-  "service_support_potential": "string",
-  "software_data_monitoring_potential": "string",
-  "financing_logic": "string — how financing or risk-sharing could work",
-  "strategic_trigger": "string — why now is the right time",
-  "suggested_decision_makers": ["string array of role titles to target"],
-  "outreach_angle": "string — specific first message angle for SHMA",
+  "description": "1-2 sentence description",
+  "what_they_sell": "string — one sentence",
+  "why_they_fit_shma": "string — specific servitization rationale, 1-2 sentences",
+  "possible_as_a_service_concept": "string — specific XaaS concept (e.g. pay-per-scan, uptime guarantee, managed fleet)",
+  "customer_capex_barrier": "string — one sentence",
+  "service_support_potential": "string — one sentence",
+  "software_data_monitoring_potential": "string — one sentence",
+  "financing_logic": "string — one sentence",
+  "strategic_trigger": "string — why now, one sentence",
+  "suggested_decision_makers": ["2-3 role titles only"],
+  "outreach_angle": "string — one sentence first message angle",
   "scores": {
     "asset_intensity": 1-5,
     "customer_upfront_investment": 1-5,
@@ -547,7 +547,6 @@ Return a JSON array of exactly ${params.mode === 'enrich' ? 'all provided' : par
     "residual_value_redeployment_potential": 1-5,
     "recurring_revenue_potential": 1-5,
     "strategic_trigger_strength": 1-5,
-    "decision_maker_accessibility": 1-5,
     "commercial_value_to_shma": 1-5
   },
   "shma_fit_score": 1-5,
@@ -555,12 +554,12 @@ Return a JSON array of exactly ${params.mode === 'enrich' ? 'all provided' : par
   "confidence_score": 1-5,
   "overall_priority": "A-priority" | "B-priority" | "C-priority" | "Nurture" | "Needs validation" | "Disqualified",
   "confidence_level": "High" | "Medium" | "Low",
-  "known_information": ["array of facts from training data or user input"],
-  "ai_hypotheses": ["array of reasonable but unverified assumptions"],
-  "missing_information": ["array of gaps that need validation"],
-  "validation_tasks": ["array of specific things the outreach team should verify before contacting"],
-  "ai_rationale": "string — 2-3 sentence overall assessment",
-  "recommendation": "string — concrete recommended next action for SHMA"
+  "known_information": ["max 3 key facts"],
+  "ai_hypotheses": ["max 2 reasonable assumptions"],
+  "missing_information": ["max 2 key gaps"],
+  "validation_tasks": ["max 2 specific validation tasks"],
+  "ai_rationale": "string — 1-2 sentence overall assessment",
+  "recommendation": "string — one concrete next action"
 }
 
 Return ONLY a valid JSON array. No markdown, no explanation, no prefix text. Start directly with [ and end with ].`
