@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { callClaude } from '@/lib/ai/client'
 import { buildDiscoveryPrompt } from '@/lib/ai/prompts'
-import { enrichDiscoveryCriteria } from '@/lib/ai/web-search'
 
 // Allow up to 5 minutes — AI generation for 25+ companies takes time
 export const maxDuration = 300
@@ -59,8 +58,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const existingNames = (existingCompanies || []).map((c: { name: string }) => c.name)
 
-    // Build and call AI
-    const webContext = await enrichDiscoveryCriteria(search.criteria_json || {})
+    // Build and call AI — no web search on initial qualification pass (fast)
     const numberRequested = Math.min(search.number_requested || 15, 20)
     const prompt = buildDiscoveryPrompt({
       criteria: search.criteria_json,
@@ -68,7 +66,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       search_depth: search.search_depth || 'standard',
       mode: search.mode || 'generate',
       existing_companies: existingNames,
-    }) + webContext
+    })
 
     let suggestions = null
     let aiResponse = null
@@ -76,7 +74,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     try {
       // Qualification schema only (~150 tokens/company). Full research is per-company on demand.
       const maxTokens = Math.min(numberRequested * 200 + 1000, 8000)
-      const AI_TIMEOUT_MS = 180_000
+      const AI_TIMEOUT_MS = 60_000
       aiResponse = await callClaude(prompt, undefined, maxTokens, AI_TIMEOUT_MS)
       suggestions = parseJsonArray(aiResponse.content)
 
