@@ -1,12 +1,12 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { cn, formatDateRelative } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/header'
 import {
-  MessageSquarePlus, Mail, Copy, CheckCircle2,
+  MessageSquarePlus, Mail, Copy, CheckCircle2, RefreshCw,
   ExternalLink, ChevronDown, ChevronUp, Building2,
 } from 'lucide-react'
 
@@ -142,6 +142,28 @@ export function OutreachClient({ messages: initial }: { messages: Message[] }) {
   const [statusFilter, setStatusFilter] = useState<string>('All')
   const [channelFilter, setChannelFilter] = useState<string>('All channels')
   const [search, setSearch] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+
+  const refresh = useCallback(async (silent = true) => {
+    if (!silent) setRefreshing(true)
+    try {
+      const res = await fetch('/api/outreach')
+      if (res.ok) {
+        const json = await res.json()
+        setMessages(json.messages ?? [])
+      }
+    } finally {
+      if (!silent) setRefreshing(false)
+    }
+  }, [])
+
+  // Refresh on window focus and every 30s
+  useEffect(() => {
+    const onFocus = () => refresh(true)
+    window.addEventListener('focus', onFocus)
+    const interval = setInterval(() => refresh(true), 30_000)
+    return () => { window.removeEventListener('focus', onFocus); clearInterval(interval) }
+  }, [refresh])
 
   const handleStatusChange = async (id: string, status: string) => {
     const res = await fetch(`/api/outreach/${id}`, {
@@ -222,7 +244,13 @@ export function OutreachClient({ messages: initial }: { messages: Message[] }) {
               </button>
             ))}
           </div>
-          <span className="text-xs text-slate-600 ml-auto">{filtered.length} messages</span>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-slate-600">{filtered.length} messages</span>
+            <button onClick={() => refresh(false)} disabled={refreshing}
+              className="p-1.5 rounded hover:bg-slate-800 text-slate-600 hover:text-slate-400 transition-colors">
+              <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
+            </button>
+          </div>
         </div>
 
         {/* List */}
