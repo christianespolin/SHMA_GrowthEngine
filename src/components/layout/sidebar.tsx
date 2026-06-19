@@ -14,7 +14,7 @@ const primaryNav = [
   { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
   { href: '/companies',  label: 'Companies',  icon: Building2 },
   { href: '/pipeline',   label: 'Kanban',     icon: Kanban },
-  { href: '/discovery',  label: 'Outreach',   icon: MessageSquarePlus },
+  { href: '/outreach',   label: 'Outreach',   icon: MessageSquarePlus },
   { href: '/meetings',   label: 'Meetings',   icon: CalendarDays },
 ]
 
