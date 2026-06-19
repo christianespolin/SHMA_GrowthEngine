@@ -13,31 +13,19 @@ export async function POST(request: NextRequest) {
 
   const userInput = `
 Scope definition: ${form.scope_definition || 'Not provided'}
-
 Search mode: ${form.search_mode || 'Not specified'}
 
-Industry presets selected: ${form.industry_presets?.join(', ') || 'None'}
-Industries to include (free text): ${form.include_industries_text || 'None'}
-Industries to exclude: ${form.exclude_industries_text || 'None'}
-Reference companies / similar-to: ${form.reference_companies_text || 'None'}
+Include: ${form.include_industries_text || 'None'}
+Avoid: ${form.exclude_industries_text || 'None'}
+Reference companies: ${form.reference_companies_text || 'None'}
+Industry presets: ${form.industry_presets?.join(', ') || 'None'}
 
-Country presets: ${form.country_presets?.join(', ') || 'None'}
-Region notes: ${form.region_notes || 'None'}
-Any geography: ${form.any_geography ? 'Yes' : 'No'}
+SHMA relevance selected: ${form.shma_fit ? Object.keys(form.shma_fit).join(', ') : 'None'}
 
-Revenue range: ${[form.min_revenue && `${form.revenue_currency} ${form.min_revenue}m`, form.max_revenue && `to ${form.revenue_currency} ${form.max_revenue}m`].filter(Boolean).join(' ') || 'Not specified'}
-Employee range: ${[form.min_employees && `${form.min_employees}+`, form.max_employees && `up to ${form.max_employees}`].filter(Boolean).join(' – ') || 'Not specified'}
-Ownership filters: ${form.ownership_filters?.join(', ') || 'None'}
-Strategic triggers: ${form.strategic_triggers?.join(', ') || 'None'}
+Geography presets: ${form.country_presets?.join(', ') || 'None'}
+Geography notes: ${form.region_notes || 'None'}
 
-SHMA-fit requirements: ${Object.keys(form.shma_fit || {}).length ? JSON.stringify(form.shma_fit) : 'Not set'}
-Funding requirements: ${Object.keys(form.funding || {}).length ? JSON.stringify(form.funding) : 'Not set'}
-
-Disqualifiers: ${Object.entries(form.disqualifiers || {}).filter(([, v]) => v).map(([k]) => k).join(', ') || 'None set'}
-Other exclusions: ${form.other_exclusions_text || 'None'}
-
-Expected universe size: ${form.expected_universe_size || 'Unknown'}
-Search depth: ${form.search_depth || 'Not specified'}
+Ownership/triggers: ${form.ownership_filters?.join(', ') || 'None'}
 `
 
   const systemPrompt = `You are a senior B2B market segmentation and servitization strategy analyst for SHMA.
@@ -69,7 +57,7 @@ Avoid:
 
 Return ONLY valid JSON with exactly this structure. No markdown, no explanation, just JSON.`
 
-  const prompt = `User input:\n${userInput}\n\nReturn valid JSON only:\n{\n  "suggested_name": "",\n  "clean_scope_definition": "",\n  "included_industries": [],\n  "excluded_industries": [],\n  "included_geographies": [],\n  "excluded_geographies": [],\n  "objective_screening_criteria": [],\n  "ai_qualification_criteria": [],\n  "disqualifiers": [],\n  "estimated_universe_breadth": "",\n  "suggested_first_screening_logic": [],\n  "suggested_data_sources": [],\n  "risks_and_ambiguities": [],\n  "clarifying_questions": []\n}\n\nDo not invent market counts. Do not claim to have verified companies. Be precise, practical and commercially useful.`
+  const prompt = `User input:\n${userInput}\n\nReturn valid JSON only:\n{\n  "improved_search_name": "",\n  "clean_scope_definition": "",\n  "included_industries": [],\n  "excluded_industries": [],\n  "suggested_adjacent_sectors": [],\n  "geography_interpretation": [],\n  "shma_relevance_logic": [],\n  "objective_screening_criteria": [],\n  "disqualifiers": [],\n  "clarifying_questions": []\n}\n\nDo not invent market counts. Do not claim to have verified companies. Be precise, practical and commercially useful.`
 
   try {
     const response = await callClaude(prompt, systemPrompt, 2048, 55_000)
