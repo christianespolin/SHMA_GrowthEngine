@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       company_id, company_name, contact_id, contact_name, contact_role,
-      shma_hypothesis, channel, tone, sender_name, save = true
+      shma_hypothesis, channel, tone, outreach_style, sender_name, save = true
     } = body
 
     if (!company_name || !channel) {
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     const prompt = buildOutreachPrompt({
       company_name, contact_name, contact_role, shma_hypothesis,
-      channel, tone, sender_name
+      channel, tone, outreach_style, sender_name
     })
     const result = await callClaudeJSON<Record<string, string>>(prompt, SYSTEM_PROMPT)
 
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
             contact_name: contact_name || null,
             contact_title: contact_role || null,
             channel,
-            tone, status: 'draft',
+            tone, outreach_style: outreach_style || null, status: 'draft', approval_status: 'Needs review',
             generated_at: new Date().toISOString(),
           })
         }
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
             contact_name: contact_name || null,
             contact_title: contact_role || null,
             channel,
-            tone, status: 'draft',
+            tone, outreach_style: outreach_style || null, status: 'draft', approval_status: 'Needs review',
             generated_at: new Date().toISOString(),
           })
         }
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
             contact_name: contact_name || null,
             contact_title: contact_role || null,
             channel,
-            tone, status: 'draft',
+            tone, outreach_style: outreach_style || null, status: 'draft', approval_status: 'Needs review',
             generated_at: new Date().toISOString(),
           })
         }
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
             contact_name: contact_name || null,
             contact_title: contact_role || null,
             channel,
-            tone, status: 'draft',
+            tone, outreach_style: outreach_style || null, status: 'draft', approval_status: 'Needs review',
             generated_at: new Date().toISOString(),
           })
         }

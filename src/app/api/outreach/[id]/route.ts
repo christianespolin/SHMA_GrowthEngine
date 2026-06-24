@@ -9,18 +9,24 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()
-    const { status, content, subject } = body
+    const { status, content, subject, approval_status, rejection_reason } = body
+
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    if (status !== undefined) updates.status = status
+    if (content !== undefined) updates.content = content
+    if (subject !== undefined) updates.subject = subject
+    if (approval_status !== undefined) updates.approval_status = approval_status
+    if (rejection_reason !== undefined) updates.rejection_reason = rejection_reason
+    if (status === 'sent') updates.sent_at = new Date().toISOString()
+    if (status === 'replied') updates.reply_received_at = new Date().toISOString()
+    if (approval_status === 'Approved') {
+      updates.approved_by = user.id
+      updates.approved_at = new Date().toISOString()
+    }
 
     const { data, error } = await supabase
       .from('outreach_messages')
-      .update({
-        ...(status !== undefined ? { status } : {}),
-        ...(content !== undefined ? { content } : {}),
-        ...(subject !== undefined ? { subject } : {}),
-        ...(status === 'sent' ? { sent_at: new Date().toISOString() } : {}),
-        ...(status === 'replied' ? { reply_received_at: new Date().toISOString() } : {}),
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq('id', id)
       .select('*, company_id')
       .single()

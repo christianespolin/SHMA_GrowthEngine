@@ -17,8 +17,10 @@ import { ConfirmDeleteModal } from '@/components/ui/confirm-delete-modal'
 import {
   Sparkles, Building2, Globe, MapPin, User, Mail, Phone, Link2,
   Calendar, FileText, MessageSquare, Activity, ChevronDown, ChevronUp, Edit3,
-  Plus, Send, AlertTriangle, CheckCircle2, Clock, ExternalLink, Copy, Save, Trash2
+  Plus, Send, AlertTriangle, CheckCircle2, Clock, ExternalLink, Copy, Save, Trash2,
+  ThumbsUp, ThumbsDown,
 } from 'lucide-react'
+import { SHMA_OUTREACH_STYLES } from '@/lib/ai/prompts'
 
 const SCORE_LABELS: Record<string, string> = {
   asset_intensity: 'Asset Intensity',
@@ -129,12 +131,14 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
       } else if (action === 'score') {
         endpoint = '/api/ai/score'
         body = { ...body, company_name: localCompany.name, segment: localCompany.segment, description: localCompany.description, notes: localCompany.notes, website: localCompany.website }
-      } else if (action === 'linkedin') {
+      } else if (action === 'linkedin' || action.startsWith('linkedin:')) {
         endpoint = '/api/ai/outreach'
-        body = { ...body, company_name: localCompany.name, channel: 'linkedin', shma_hypothesis: localBrief?.possible_aaas_concept }
-      } else if (action === 'email') {
+        const style = action.includes(':') ? action.split(':')[1] : undefined
+        body = { ...body, company_name: localCompany.name, channel: 'linkedin', shma_hypothesis: localBrief?.possible_aaas_concept, outreach_style: style }
+      } else if (action === 'email' || action.startsWith('email:')) {
         endpoint = '/api/ai/outreach'
-        body = { ...body, company_name: localCompany.name, channel: 'email', shma_hypothesis: localBrief?.possible_aaas_concept }
+        const style = action.includes(':') ? action.split(':')[1] : undefined
+        body = { ...body, company_name: localCompany.name, channel: 'email', shma_hypothesis: localBrief?.possible_aaas_concept, outreach_style: style }
       } else if (action === 'meeting') {
         endpoint = '/api/ai/meeting-brief'
         body = { ...body, company_name: localCompany.name, company_background: localBrief?.company_snapshot, shma_hypothesis: localBrief?.possible_aaas_concept, stage: localCompany.stage }
@@ -386,6 +390,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
               loading={aiLoading === 'linkedin' || aiLoading === 'email'}
               onGenerate={(channel) => { setAiResult(null); runAI(channel) }}
               justSaved={outreachJustSaved}
+              hasWarmIntro={localContacts.some(c => c.warm_intro_available)}
             />
           </div>
         )}
@@ -750,17 +755,20 @@ function parseOutreachContent(content: string): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved }: {
+function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved, hasWarmIntro }: {
   outreach: Record<string, any>[]
   aiResult: Record<string, string> | null
   loading: boolean
   onGenerate: (channel: string) => void
   justSaved: boolean
+  hasWarmIntro?: boolean
 }) {
   const [copied, setCopied] = useState<string | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [localOutreach, setLocalOutreach] = useState<Record<string, any>[]>(outreach)
   const [marking, setMarking] = useState<string | null>(null)
+  const [selectedStyle, setSelectedStyle] = useState<string>('executive_short_form')
+  const [showStylePicker, setShowStylePicker] = useState(false)
 
   const copy = async (text: string, key: string) => {
     await navigator.clipboard.writeText(text)
@@ -826,7 +834,38 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved }: {
   const statusBadge = (msg: Record<string, any>) => {
     if (msg.status === 'replied') return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
     if (msg.status === 'sent') return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+    if (msg.approval_status === 'Approved') return 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+    if (msg.approval_status === 'Rejected') return 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+    if (msg.approval_status === 'Needs rewrite') return 'bg-orange-500/20 text-orange-400 border-orange-500/30'
     return 'bg-slate-700 text-slate-400 border-slate-600'
+  }
+
+  const approveMessage = async (id: string) => {
+    setMarking(id + '_approve')
+    try {
+      const res = await fetch(`/api/outreach/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approval_status: 'Approved' }),
+      })
+      if (res.ok) {
+        setLocalOutreach(prev => prev.map(m => String(m.id) === id ? { ...m, approval_status: 'Approved' } : m))
+      }
+    } finally { setMarking(null) }
+  }
+
+  const rejectMessage = async (id: string, reason?: string) => {
+    setMarking(id + '_reject')
+    try {
+      const res = await fetch(`/api/outreach/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approval_status: 'Needs rewrite', rejection_reason: reason || 'Needs improvement' }),
+      })
+      if (res.ok) {
+        setLocalOutreach(prev => prev.map(m => String(m.id) === id ? { ...m, approval_status: 'Needs rewrite' } : m))
+      }
+    } finally { setMarking(null) }
   }
 
   const aiResultLabels: Record<string, string> = {
@@ -843,11 +882,60 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved }: {
 
   return (
     <div className="max-w-2xl space-y-4">
+      {/* Warm intro nudge */}
+      {hasWarmIntro && (
+        <div className="flex items-center gap-2 text-xs bg-cyan-500/10 border border-cyan-500/30 rounded-lg px-3 py-2 text-cyan-300">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          One or more contacts have a warm intro available. Consider using Warm Intro outreach first.
+        </div>
+      )}
+
+      {/* Style selector */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-slate-500 uppercase tracking-wide">Outreach style</span>
+          <button onClick={() => setShowStylePicker(v => !v)} className="text-xs text-slate-600 hover:text-slate-400">
+            {showStylePicker ? 'Hide styles' : 'All styles'}
+          </button>
+        </div>
+        {showStylePicker ? (
+          <div className="grid grid-cols-2 gap-1.5">
+            {Object.entries(SHMA_OUTREACH_STYLES).map(([key, cfg]) => (
+              <button
+                key={key}
+                onClick={() => { setSelectedStyle(key); setShowStylePicker(false) }}
+                className={cn(
+                  'text-left p-2.5 rounded-lg border text-xs transition-colors',
+                  selectedStyle === key
+                    ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-300'
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                )}
+              >
+                <div className="font-medium text-slate-300 mb-0.5">{cfg.label}</div>
+                <div className="text-slate-600 leading-tight line-clamp-2">{cfg.description}</div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className={cn(
+            'flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer',
+            'bg-slate-800 border-slate-700 hover:border-slate-600'
+          )} onClick={() => setShowStylePicker(true)}>
+            <div>
+              <span className="text-xs font-medium text-slate-300">{SHMA_OUTREACH_STYLES[selectedStyle]?.label}</span>
+              <span className="text-xs text-slate-600 ml-2">{SHMA_OUTREACH_STYLES[selectedStyle]?.description.slice(0, 60)}…</span>
+            </div>
+            <ChevronDown className="h-3.5 w-3.5 text-slate-600" />
+          </div>
+        )}
+      </div>
+
+      {/* Generate buttons */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Button size="sm" variant="ghost" onClick={() => onGenerate('linkedin')}>
+        <Button size="sm" variant="ghost" onClick={() => onGenerate(`linkedin:${selectedStyle}`)}>
           <Sparkles className="h-3.5 w-3.5" /> LinkedIn
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => onGenerate('email')}>
+        <Button size="sm" variant="ghost" onClick={() => onGenerate(`email:${selectedStyle}`)}>
           <Sparkles className="h-3.5 w-3.5" /> Email
         </Button>
         <Button size="sm" variant="ghost" onClick={() => onGenerate('warm_intro')}>
@@ -855,7 +943,7 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved }: {
         </Button>
         {justSaved && (
           <span className="px-2 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded text-xs">
-            Saved to Outreach tab ✓
+            Saved ✓ — review below before sending
           </span>
         )}
       </div>
@@ -918,6 +1006,8 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved }: {
                       onMarkReplied={markReplied}
                       onCopy={copy}
                       onUpdate={updateMessage}
+                      onApprove={approveMessage}
+                      onReject={rejectMessage}
                     />
                   ))}
                 </div>
@@ -944,6 +1034,8 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved }: {
                       onMarkReplied={markReplied}
                       onCopy={copy}
                       onUpdate={updateMessage}
+                      onApprove={approveMessage}
+                      onReject={rejectMessage}
                     />
                   ))}
                 </div>
@@ -957,7 +1049,7 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved }: {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function OutreachMessageCard({ msg, marking, copied, statusBadge, onMarkSent, onMarkReplied, onCopy, onUpdate }: {
+function OutreachMessageCard({ msg, marking, copied, statusBadge, onMarkSent, onMarkReplied, onCopy, onUpdate, onApprove, onReject }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   msg: Record<string, any>
   marking: string | null
@@ -968,6 +1060,8 @@ function OutreachMessageCard({ msg, marking, copied, statusBadge, onMarkSent, on
   onMarkReplied: (id: string) => void
   onCopy: (text: string, key: string) => void
   onUpdate: (id: string, updates: { content: string; subject?: string }) => void
+  onApprove: (id: string) => void
+  onReject: (id: string, reason?: string) => void
 }) {
   const msgId = String(msg.id)
   const content = parseOutreachContent(String(msg.content || ''))
@@ -1088,7 +1182,7 @@ function OutreachMessageCard({ msg, marking, copied, statusBadge, onMarkSent, on
       )}
 
       {/* Action bar */}
-      <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-700/50">
+      <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-700/50 flex-wrap">
         {editing ? (
           <>
             <button
@@ -1108,15 +1202,44 @@ function OutreachMessageCard({ msg, marking, copied, statusBadge, onMarkSent, on
           </>
         ) : (
           <>
-            {msg.status !== 'sent' && msg.status !== 'replied' && (
+            {/* Approval actions — only for draft/needs review messages */}
+            {msg.status !== 'sent' && msg.status !== 'replied' && msg.approval_status !== 'Approved' && (
+              <>
+                <button
+                  onClick={() => onApprove(msgId)}
+                  disabled={!!marking}
+                  className="text-xs text-emerald-500 hover:text-emerald-300 disabled:opacity-50 flex items-center gap-1 font-medium"
+                  title="Approve for sending"
+                >
+                  <ThumbsUp className="h-3 w-3" />
+                  Approve
+                </button>
+                <button
+                  onClick={() => onReject(msgId)}
+                  disabled={!!marking}
+                  className="text-xs text-rose-500 hover:text-rose-300 disabled:opacity-50 flex items-center gap-1"
+                  title="Mark as needs rewrite"
+                >
+                  <ThumbsDown className="h-3 w-3" />
+                  Needs rewrite
+                </button>
+              </>
+            )}
+            {/* Mark sent — only after approval */}
+            {msg.status !== 'sent' && msg.status !== 'replied' && msg.approval_status === 'Approved' && (
               <button
                 onClick={() => onMarkSent(msgId)}
                 disabled={marking === msgId + '_sent'}
-                className="text-xs text-cyan-500 hover:text-cyan-300 disabled:opacity-50 flex items-center gap-1"
+                className="text-xs text-cyan-500 hover:text-cyan-300 disabled:opacity-50 flex items-center gap-1 font-medium"
               >
                 <Send className="h-3 w-3" />
                 {marking === msgId + '_sent' ? 'Saving…' : 'Mark Sent'}
               </button>
+            )}
+            {msg.status !== 'sent' && msg.status !== 'replied' && msg.approval_status !== 'Approved' && (
+              <span className="text-[10px] text-slate-700 flex items-center gap-1 ml-auto">
+                <Clock className="h-3 w-3" /> Approve before sending
+              </span>
             )}
             {msg.status === 'sent' && (
               <button

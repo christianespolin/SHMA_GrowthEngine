@@ -123,6 +123,41 @@ Respond ONLY with valid JSON in this exact format:
 }`
 }
 
+export const SHMA_OUTREACH_STYLES: Record<string, { label: string; description: string }> = {
+  executive_short_form: {
+    label: 'Executive short-form',
+    description: 'Ultra-concise. CEO-to-CEO. One idea per sentence. Max 5 lines. No softening language.',
+  },
+  clevel_strategic: {
+    label: 'C-level strategic note',
+    description: 'Peer-to-peer tone. References market dynamics or a specific strategic shift. Positions SHMA as a thoughtful partner, not a cold caller.',
+  },
+  cfo_funding_angle: {
+    label: 'CFO / funding angle',
+    description: 'Leads with capital structure or funding context. SHMA as a capital solution. Relevant when target is PE-backed or exploring liquidity.',
+  },
+  founder_owner_direct: {
+    label: 'Founder / owner — direct',
+    description: 'Founder-to-founder register. Acknowledges what they built. Straight to the point about what SHMA can do for them personally.',
+  },
+  operational_credibility: {
+    label: 'Operational credibility',
+    description: 'Leads with sector expertise and operational understanding. For contacts who need to trust you know the business before engaging.',
+  },
+  warm_referral_light: {
+    label: 'Warm referral (light touch)',
+    description: 'Mentions the connection briefly. Conversational. Does not lean on the referral too hard. Natural, not transactional.',
+  },
+  board_chairman: {
+    label: 'Board / chairman',
+    description: 'Governance-aware. Respectful of their oversight role. Frames SHMA as alignment-conscious, not disruptive. For non-executive directors.',
+  },
+  re_engagement: {
+    label: 'Re-engagement (previous contact)',
+    description: 'References prior interaction. Acknowledges time passed. New angle or development at SHMA to justify reconnecting. No apology for the gap.',
+  },
+}
+
 export function buildOutreachPrompt(params: {
   company_name: string
   contact_name?: string | null
@@ -130,10 +165,15 @@ export function buildOutreachPrompt(params: {
   shma_hypothesis?: string | null
   channel: 'linkedin' | 'email' | 'warm_intro' | 'follow_up' | 're_engagement'
   tone?: string
+  outreach_style?: string | null
   sender_name?: string
 }): string {
   const channel = params.channel
-  const tone = params.tone || 'professional and senior'
+  const styleKey = params.outreach_style
+  const styleCfg = styleKey ? SHMA_OUTREACH_STYLES[styleKey] : null
+  const tone = styleCfg
+    ? `${styleCfg.label}: ${styleCfg.description}`
+    : (params.tone || 'professional and senior')
 
   if (channel === 'linkedin') {
     return `Write LinkedIn outreach for SH Management (SHMA).
