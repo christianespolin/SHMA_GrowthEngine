@@ -3,8 +3,206 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Save, Star, ChevronDown, ChevronRight } from 'lucide-react'
+import { Save, Star, ChevronDown, ChevronRight, Plus, CheckCircle2, Lock, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+interface CriteriaVersion {
+  id: string
+  version_name: string
+  status: string
+  notes: string | null
+  approved_by_simon: boolean
+  approved_by_stian: boolean
+  approved_by_christian: boolean
+  simon_notes: string | null
+  stian_notes: string | null
+  christian_notes: string | null
+  locked_at: string | null
+  created_at: string
+}
+
+const VERSION_STATUS_CFG: Record<string, { color: string; icon: React.ElementType }> = {
+  Draft: { color: 'text-slate-400', icon: Clock },
+  'Under Review': { color: 'text-amber-400', icon: Clock },
+  Approved: { color: 'text-emerald-400', icon: CheckCircle2 },
+  Locked: { color: 'text-cyan-400', icon: Lock },
+  Superseded: { color: 'text-slate-600', icon: ChevronRight },
+}
+
+function ScoringVersionWorkflow({ versions: initialVersions }: { versions: CriteriaVersion[] }) {
+  const [versions, setVersions] = useState(initialVersions)
+  const [creating, setCreating] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newNotes, setNewNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [expanded, setExpanded] = useState<string | null>(versions[0]?.id || null)
+
+  const createVersion = async () => {
+    if (!newName.trim()) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/scoring-criteria/versions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version_name: newName, notes: newNotes }),
+      })
+      if (res.ok) {
+        const v = await res.json()
+        setVersions(vs => [v, ...vs])
+        setCreating(false)
+        setNewName('')
+        setNewNotes('')
+        setExpanded(v.id)
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const toggleApproval = async (versionId: string, field: 'approved_by_simon' | 'approved_by_stian' | 'approved_by_christian', notes_field: 'simon_notes' | 'stian_notes' | 'christian_notes', currentVal: boolean, notes: string | null) => {
+    const res = await fetch(`/api/scoring-criteria/versions/${versionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: !currentVal, [notes_field]: notes }),
+    })
+    if (res.ok) {
+      const updated = await res.json()
+      setVersions(vs => vs.map(v => v.id === versionId ? { ...v, ...updated } : v))
+    }
+  }
+
+  const updateStatus = async (versionId: string, status: string) => {
+    const res = await fetch(`/api/scoring-criteria/versions/${versionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
+    if (res.ok) {
+      const updated = await res.json()
+      setVersions(vs => vs.map(v => v.id === versionId ? { ...v, ...updated } : v))
+    }
+  }
+
+  const activeVersion = versions.find(v => v.status === 'Locked') || versions.find(v => v.status === 'Approved')
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 mb-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-200">Scoring Criteria Versions</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Criteria must be reviewed by Simon, Stian and Christian before locking for production use.</p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => setCreating(true)}>
+          <Plus className="w-3.5 h-3.5" /> New Version
+        </Button>
+      </div>
+
+      {activeVersion && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+          <span className="text-emerald-300 font-medium">Active: {activeVersion.version_name}</span>
+          <span className="text-slate-500">· {activeVersion.status}</span>
+        </div>
+      )}
+
+      {creating && (
+        <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 space-y-3">
+          <h3 className="text-xs font-medium text-slate-400">New criteria version</h3>
+          <input
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            placeholder="Version name, e.g. v1.0 — June 2026"
+            className="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+          />
+          <textarea
+            value={newNotes}
+            onChange={e => setNewNotes(e.target.value)}
+            placeholder="Notes about what changed or what to review…"
+            rows={2}
+            className="w-full bg-slate-900 border border-slate-700 rounded-md px-3 py-1.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+          />
+          <div className="flex gap-2">
+            <Button size="sm" variant="primary" onClick={createVersion} loading={saving} disabled={!newName.trim()}>Create</Button>
+            <Button size="sm" variant="ghost" onClick={() => setCreating(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {versions.map(v => {
+          const cfg = VERSION_STATUS_CFG[v.status] || VERSION_STATUS_CFG.Draft
+          const Icon = cfg.icon
+          const allApproved = v.approved_by_simon && v.approved_by_stian && v.approved_by_christian
+          const isExpanded = expanded === v.id
+
+          return (
+            <div key={v.id} className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-700/30 transition-colors"
+                onClick={() => setExpanded(isExpanded ? null : v.id)}
+              >
+                <Icon className={`w-3.5 h-3.5 ${cfg.color} flex-shrink-0`} />
+                <span className="text-sm font-medium text-slate-200 flex-1">{v.version_name}</span>
+                <span className={`text-xs ${cfg.color}`}>{v.status}</span>
+                {allApproved && <span className="text-xs text-emerald-400">All approved ✓</span>}
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isExpanded && (
+                <div className="px-4 pb-4 space-y-3 border-t border-slate-700">
+                  {v.notes && <p className="text-xs text-slate-500 mt-3">{v.notes}</p>}
+
+                  <div className="grid grid-cols-3 gap-3 mt-3">
+                    {([
+                      { name: 'Simon', field: 'approved_by_simon' as const, notes_field: 'simon_notes' as const, approved: v.approved_by_simon, notes: v.simon_notes },
+                      { name: 'Stian', field: 'approved_by_stian' as const, notes_field: 'stian_notes' as const, approved: v.approved_by_stian, notes: v.stian_notes },
+                      { name: 'Christian', field: 'approved_by_christian' as const, notes_field: 'christian_notes' as const, approved: v.approved_by_christian, notes: v.christian_notes },
+                    ] as const).map(p => (
+                      <div key={p.name} className={`rounded-lg p-3 border ${p.approved ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-slate-900 border-slate-700'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-slate-300">{p.name}</span>
+                          <button
+                            onClick={() => toggleApproval(v.id, p.field, p.notes_field, p.approved, p.notes)}
+                            className={`text-xs px-2 py-0.5 rounded border transition-colors ${p.approved ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/10' : 'border-slate-600 text-slate-500 hover:border-slate-500'}`}
+                          >
+                            {p.approved ? '✓ Approved' : 'Mark approved'}
+                          </button>
+                        </div>
+                        {p.notes && <p className="text-xs text-slate-600 italic">{p.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+
+                  {v.status !== 'Locked' && (
+                    <div className="flex gap-2 pt-1">
+                      {v.status === 'Draft' && (
+                        <Button size="sm" variant="ghost" onClick={() => updateStatus(v.id, 'Under Review')}>Send for Review</Button>
+                      )}
+                      {allApproved && v.status !== 'Approved' && (
+                        <Button size="sm" variant="ghost" onClick={() => updateStatus(v.id, 'Approved')}>Mark Approved</Button>
+                      )}
+                      {v.status === 'Approved' && (
+                        <Button size="sm" variant="primary" onClick={() => updateStatus(v.id, 'Locked')}>
+                          <Lock className="w-3 h-3" /> Lock for Production
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {v.status === 'Locked' && (
+                    <p className="text-xs text-cyan-400">🔒 Locked {v.locked_at ? new Date(v.locked_at).toLocaleDateString() : ''} — criteria frozen for production use.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+        {versions.length === 0 && (
+          <p className="text-xs text-slate-600 text-center py-4">No versions yet. Create one to start the review process.</p>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const GROUP_META: Record<string, { label: string; description: string; color: string }> = {
   shma_fit:    { label: 'SHMA Fit Score',         color: 'text-cyan-400',    description: 'Measures whether the company matches SHMA\'s core sweet spot for servitization.' },
@@ -24,9 +222,10 @@ interface Threshold {
   c_priority_min: number; disqualified_below: number
 }
 
-export function ScoringCriteriaClient({ criteria: initial, thresholds: initialThresholds }: {
+export function ScoringCriteriaClient({ criteria: initial, thresholds: initialThresholds, versions }: {
   criteria: Criterion[]
   thresholds: Threshold[]
+  versions: CriteriaVersion[]
 }) {
   const [criteria, setCriteria] = useState(initial)
   const [thresholds, setThresholds] = useState(initialThresholds)
@@ -76,13 +275,7 @@ export function ScoringCriteriaClient({ criteria: initial, thresholds: initialTh
 
   return (
     <div className="flex-1 overflow-y-auto p-6 max-w-4xl space-y-6">
-      <div className="flex items-center gap-3 mb-2">
-        <Star className="w-5 h-5 text-cyan-400" />
-        <div>
-          <h1 className="text-lg font-semibold text-slate-100">SHMA Scoring Criteria</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Configure how companies are scored and prioritized</p>
-        </div>
-      </div>
+      <ScoringVersionWorkflow versions={versions} />
 
       {/* Explanation */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">

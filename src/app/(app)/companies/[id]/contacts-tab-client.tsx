@@ -340,6 +340,22 @@ function ContactCard({
             <span className="font-medium text-slate-200">{displayName}</span>
             <span className={cn('px-1.5 py-0.5 rounded text-[10px] border', cfg.badge)}>{cat}</span>
             {contact.gdpr_status && <GdprBadge status={contact.gdpr_status} />}
+            {contact.contact_readiness && contact.contact_readiness !== 'Role only' && (
+              <span className={cn('px-1.5 py-0.5 rounded text-[10px] border', {
+                'bg-emerald-500/10 text-emerald-400 border-emerald-500/30': contact.contact_readiness === 'Ready for outreach',
+                'bg-amber-500/10 text-amber-400 border-amber-500/30': contact.contact_readiness === 'Contact data incomplete',
+                'bg-purple-500/10 text-purple-400 border-purple-500/30': contact.contact_readiness === 'Use warm intro',
+                'bg-rose-500/10 text-rose-400 border-rose-500/30': contact.contact_readiness === 'Do not contact',
+                'bg-slate-700 text-slate-400 border-slate-600': contact.contact_readiness === 'Person identified',
+              })}>
+                {contact.contact_readiness}
+              </span>
+            )}
+            {contact.warm_intro_available && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] border bg-cyan-500/10 text-cyan-400 border-cyan-500/30">
+                🤝 Warm intro
+              </span>
+            )}
           </div>
           {(contact.title || contact.role) && (
             <div className="text-xs text-slate-400 mt-0.5">{contact.title || contact.role}</div>

@@ -11,6 +11,7 @@ import { PIPELINE_STAGES, SEGMENTS, NEXT_ACTION_TYPES } from '@/lib/types'
 import { ContactsTabClient } from './contacts-tab-client'
 import { FinancialTabClient } from './financial-tab-client'
 import { OriginationTab } from './origination-tab'
+import { OwnershipTab } from './ownership-tab'
 import { NextActionPanel } from './next-action-panel'
 import { ConfirmDeleteModal } from '@/components/ui/confirm-delete-modal'
 import {
@@ -44,7 +45,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
   latestRun?: Record<string, any> | null
   financialProfile?: Record<string, any> | null
 }) {
-  const [tab, setTab] = useState<'overview' | 'fit' | 'research' | 'contacts' | 'outreach' | 'meetings' | 'activity' | 'financial' | 'origination'>('overview')
+  const [tab, setTab] = useState<'overview' | 'fit' | 'research' | 'contacts' | 'outreach' | 'meetings' | 'activity' | 'financial' | 'origination' | 'ownership'>('overview')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState<string | null>(null)
@@ -233,6 +234,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
     { id: 'activity', label: 'Activity' },
     { id: 'financial', label: 'Financial & Funding' },
     { id: 'origination', label: 'Origination' },
+    { id: 'ownership', label: 'Ownership & Board' },
   ]
 
   return (
@@ -408,6 +410,12 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
         )}
         {tab === 'origination' && (
           <OriginationTab companyId={String(localCompany.id)} companyName={String(localCompany.name)} companyStage={String(localCompany.stage)} />
+        )}
+        {tab === 'ownership' && (
+          <OwnershipTab
+            company={localCompany}
+            onSave={(updates) => setLocalCompany(c => ({ ...c, ...updates }))}
+          />
         )}
       </div>
 
