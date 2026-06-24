@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Building2, Kanban, BarChart3,
   Settings, ChevronRight, ChevronDown, Zap, CalendarDays, Crosshair,
-  Sun, Moon, Globe2, Star, MessageSquarePlus,
+  Sun, Moon, Globe2, Star, MessageSquarePlus, Upload, Users, CheckSquare, ListFilter,
 } from 'lucide-react'
 
 const primaryNav = [
@@ -19,10 +19,13 @@ const primaryNav = [
 ]
 
 const extendedNav = [
+  { href: '/long-list/import',            label: 'Long List Import',        icon: Upload },
   { href: '/discovery',                   label: 'Target Discovery',        icon: Crosshair },
   { href: '/target-universe',             label: 'Target Universe',         icon: Globe2 },
+  { href: '/partner-review-lists',        label: 'Partner Reviews',         icon: Users },
   { href: '/reports',                     label: 'Reports',                 icon: BarChart3 },
   { href: '/updated-scoring-criteria',    label: 'Scoring Criteria',        icon: Star },
+  { href: '/mvp-readiness',               label: 'MVP Readiness',           icon: CheckSquare },
   { href: '/settings',                    label: 'Settings',                icon: Settings },
 ]
 

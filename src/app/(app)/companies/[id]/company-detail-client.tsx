@@ -90,6 +90,8 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
       ownership_type: String(localCompany.ownership_type || ''),
       revenue_range: String(localCompany.revenue_range || ''),
       employee_range: String(localCompany.employee_range || ''),
+      sensitivity_status: String(localCompany.sensitivity_status || 'Normal'),
+      sensitivity_reason: String(localCompany.sensitivity_reason || ''),
     })
     setEditing(true)
   }
@@ -241,6 +243,16 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
         <ScoreBadge score={localCompany.shma_fit_score as number | null} label="Fit" />
         <ScoreBadge score={localCompany.opportunity_score as number | null} label="Opp" />
         <ScoreBadge score={localCompany.closing_score as number | null} label="Close" />
+        {localCompany.sensitivity_status && localCompany.sensitivity_status !== 'Normal' && (
+          <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+            localCompany.sensitivity_status === 'Do not contact' ? 'bg-rose-500/15 text-rose-400 border-rose-500/30' :
+            localCompany.sensitivity_status === 'Sensitive' ? 'bg-amber-500/15 text-amber-400 border-amber-500/30' :
+            localCompany.sensitivity_status === 'Excluded from SHMA outreach' ? 'bg-slate-700 text-slate-400 border-slate-600' :
+            'bg-purple-500/15 text-purple-400 border-purple-500/30'
+          }`}>
+            {localCompany.sensitivity_status}
+          </span>
+        )}
 
         <div className="flex-1" />
 
@@ -347,13 +359,33 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
           />
         )}
         {tab === 'outreach' && (
-          <OutreachTab
-            outreach={outreach}
-            aiResult={aiLoading ? null : aiResult}
-            loading={aiLoading === 'linkedin' || aiLoading === 'email'}
-            onGenerate={(channel) => { setAiResult(null); runAI(channel) }}
-            justSaved={outreachJustSaved}
-          />
+          <div>
+            {localCompany.sensitivity_status === 'Do not contact' && (
+              <div className="flex items-start gap-2 p-3 mb-4 bg-rose-500/10 border border-rose-500/30 rounded-lg">
+                <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-rose-300">Do Not Contact</p>
+                  <p className="text-xs text-slate-400 mt-0.5">This company is flagged as Do Not Contact. No outreach should be sent.{localCompany.sensitivity_reason ? ` Reason: ${localCompany.sensitivity_reason}` : ''}</p>
+                </div>
+              </div>
+            )}
+            {localCompany.sensitivity_status === 'Sensitive' && (
+              <div className="flex items-start gap-2 p-3 mb-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-300">Sensitive Company</p>
+                  <p className="text-xs text-slate-400 mt-0.5">This company is flagged as Sensitive. Approval required before outreach.{localCompany.sensitivity_reason ? ` Reason: ${localCompany.sensitivity_reason}` : ''}</p>
+                </div>
+              </div>
+            )}
+            <OutreachTab
+              outreach={outreach}
+              aiResult={aiLoading ? null : aiResult}
+              loading={aiLoading === 'linkedin' || aiLoading === 'email'}
+              onGenerate={(channel) => { setAiResult(null); runAI(channel) }}
+              justSaved={outreachJustSaved}
+            />
+          </div>
         )}
         {tab === 'meetings' && (
           <MeetingsTab
@@ -457,6 +489,24 @@ function OverviewTab({ company, editing, editData, setEditData }: {
         <Input label="Next Action" value={editData.next_action} onChange={set('next_action')} />
         <Input label="Next Action Date" type="date" value={editData.next_action_date} onChange={set('next_action_date')} />
         <Textarea label="Notes" value={editData.notes} onChange={set('notes')} />
+        <div className="border-t border-slate-700 pt-4">
+          <Select
+            label="Sensitivity Status"
+            value={editData.sensitivity_status || 'Normal'}
+            onChange={set('sensitivity_status')}
+            placeholder="Select"
+            options={[
+              { value: 'Normal', label: 'Normal' },
+              { value: 'Sensitive', label: 'Sensitive' },
+              { value: 'Do not contact', label: 'Do not contact' },
+              { value: 'Contact only through named person', label: 'Contact only through named person' },
+              { value: 'Excluded from SHMA outreach', label: 'Excluded from SHMA outreach' },
+            ]}
+          />
+          {editData.sensitivity_status && editData.sensitivity_status !== 'Normal' && (
+            <Textarea label="Sensitivity Reason" value={editData.sensitivity_reason || ''} onChange={set('sensitivity_reason')} placeholder="Why is this company sensitive?" />
+          )}
+        </div>
       </div>
     )
   }

@@ -1,16 +1,19 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Bell, LogOut, User } from 'lucide-react'
+import Link from 'next/link'
+import { Search, Bell, LogOut, ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 interface HeaderProps {
   title?: string
   subtitle?: string
   actions?: React.ReactNode
+  backHref?: string
+  backLabel?: string
 }
 
-export function Header({ title, subtitle, actions }: HeaderProps) {
+export function Header({ title, subtitle, actions, backHref, backLabel }: HeaderProps) {
   const [query, setQuery] = useState('')
   const router = useRouter()
 
@@ -29,6 +32,12 @@ export function Header({ title, subtitle, actions }: HeaderProps) {
 
   return (
     <header className="h-14 bg-slate-900 border-b border-slate-800 flex items-center px-5 gap-4 flex-shrink-0">
+      {backHref && (
+        <Link href={backHref} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors flex-shrink-0">
+          <ChevronLeft className="w-3.5 h-3.5" />
+          {backLabel || 'Back'}
+        </Link>
+      )}
       {title && (
         <div className="flex-shrink-0">
           <h1 className="text-sm font-semibold text-slate-100">{title}</h1>
