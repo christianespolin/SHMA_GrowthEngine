@@ -7,9 +7,9 @@ import { type HumanReviewStatus } from '@/lib/types'
 import {
   Sparkles, Users, CheckSquare, ChevronRight, AlertTriangle,
   BarChart2, Filter, CheckCircle2, X, Clock, ArrowRight,
-  Play, Info,
 } from 'lucide-react'
 import Link from 'next/link'
+import { BatchRunPanel } from '@/components/bulk/batch-run-panel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>
@@ -36,7 +36,7 @@ export function BulkListDetailClient({ list, items, aiRuns }: {
   aiRuns: AnyRecord[]
 }) {
   const router = useRouter()
-  const [tab, setTab] = useState<'companies' | 'ai_runs' | 'settings'>('companies')
+  const [tab, setTab] = useState<'companies' | 'ai_runs' | 'run' | 'settings'>('companies')
   const [filterReview, setFilterReview] = useState<HumanReviewStatus | 'All'>('All')
   const [filterCountry, setFilterCountry] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -114,8 +114,10 @@ export function BulkListDetailClient({ list, items, aiRuns }: {
     return 'text-rose-400'
   }
 
+  const showRunTab = list.category === 'Longlist' || list.category === 'Ready for AI Deep Research' || list.category === 'Ready for Contact Research'
   const TABS = [
     { id: 'companies', label: `Companies (${items.length})` },
+    ...(showRunTab ? [{ id: 'run', label: 'Run AI Process' }] : []),
     { id: 'ai_runs', label: `AI Runs (${aiRuns.length})` },
     { id: 'settings', label: 'Settings' },
   ]
@@ -140,7 +142,7 @@ export function BulkListDetailClient({ list, items, aiRuns }: {
       {/* Action panel */}
       <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-4 flex items-center gap-3 flex-wrap">
         {list.category === 'Longlist' && (
-          <Button size="sm" variant="primary" onClick={() => router.push(`/ai-runs?new=SHMA+Scoring&bulk_list_id=${list.id}`)}>
+          <Button size="sm" variant="primary" onClick={() => setTab('run')}>
             <Sparkles className="w-3.5 h-3.5" /> Run AI Scoring
           </Button>
         )}
@@ -150,7 +152,7 @@ export function BulkListDetailClient({ list, items, aiRuns }: {
           </Button>
         )}
         {list.category === 'Ready for AI Deep Research' && (
-          <Button size="sm" variant="primary" onClick={() => router.push(`/ai-runs?new=Deep+Research&bulk_list_id=${list.id}`)}>
+          <Button size="sm" variant="primary" onClick={() => setTab('run')}>
             <Sparkles className="w-3.5 h-3.5" /> Run Deep Research
           </Button>
         )}
@@ -374,6 +376,41 @@ export function BulkListDetailClient({ list, items, aiRuns }: {
                 )}
               </div>
             ))
+          )}
+        </div>
+      )}
+
+      {tab === 'run' && (
+        <div className="max-w-lg">
+          {list.category === 'Longlist' && (
+            <BatchRunPanel
+              listId={list.id}
+              processType="SHMA Scoring"
+              endpoint="run-scoring"
+              totalCompanies={list.company_count || 0}
+              estimatedCostPerCompany={0.003}
+              onComplete={() => { router.refresh() }}
+            />
+          )}
+          {list.category === 'Ready for AI Deep Research' && (
+            <BatchRunPanel
+              listId={list.id}
+              processType="Deep Research"
+              endpoint="run-deep-research"
+              totalCompanies={list.company_count || 0}
+              estimatedCostPerCompany={0.025}
+              onComplete={() => { router.refresh() }}
+            />
+          )}
+          {list.category === 'Ready for Contact Research' && (
+            <BatchRunPanel
+              listId={list.id}
+              processType="Contact Research"
+              endpoint="run-contact-research"
+              totalCompanies={list.company_count || 0}
+              estimatedCostPerCompany={0.035}
+              onComplete={() => { router.refresh() }}
+            />
           )}
         </div>
       )}
