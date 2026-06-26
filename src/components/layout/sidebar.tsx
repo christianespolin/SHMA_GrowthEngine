@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Building2, Kanban, BarChart3,
   Settings, ChevronRight, ChevronDown, Zap, CalendarDays, Crosshair,
   Sun, Moon, Globe2, Star, MessageSquarePlus, Upload, Users, CheckSquare,
-  List, Activity,
+  List, Activity, BookOpen, GraduationCap, ShieldCheck,
 } from 'lucide-react'
 
 const primaryNav = [
@@ -29,6 +29,9 @@ const extendedNav = [
   { href: '/reports',                     label: 'Reports',                 icon: BarChart3 },
   { href: '/updated-scoring-criteria',    label: 'Scoring Criteria',        icon: Star },
   { href: '/mvp-readiness',               label: 'MVP Readiness',           icon: CheckSquare },
+  { href: '/outreach-playbook',           label: 'Outreach Playbook',       icon: BookOpen },
+  { href: '/outreach-team-onboarding',    label: 'Team Onboarding',         icon: GraduationCap },
+  { href: '/settings/technical-ownership', label: 'Technical Ownership',   icon: ShieldCheck },
   { href: '/settings',                    label: 'Settings',                icon: Settings },
 ]
 
