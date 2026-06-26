@@ -1,11 +1,97 @@
 export type Priority = 'A' | 'B' | 'C' | 'Nurture' | 'Disqualified' | 'Unknown'
 
+// ============================================================
+// BULK / LIST PROCESS categories (pre-Kanban pipeline)
+// ============================================================
+export type BulkListCategory =
+  | 'Longlist'
+  | 'AI Researched'
+  | 'AI Researched, Pending'
+  | 'AI Researched, Not Interesting'
+  | 'Ready for AI Deep Research'
+  | 'Ready for Human Review'
+  | 'Ready for Contact Research'
+  | 'Converted to Customer Kanban'
+  | 'Archived'
+
+export const BULK_LIST_CATEGORIES: BulkListCategory[] = [
+  'Longlist',
+  'AI Researched',
+  'AI Researched, Pending',
+  'AI Researched, Not Interesting',
+  'Ready for AI Deep Research',
+  'Ready for Human Review',
+  'Ready for Contact Research',
+  'Converted to Customer Kanban',
+  'Archived',
+]
+
+export type HumanReviewStatus =
+  | 'Not reviewed'
+  | 'Approved'
+  | 'Rejected'
+  | 'Needs discussion'
+  | 'Keep for later'
+  | 'Sensitive'
+  | 'Do not contact'
+
+export const HUMAN_REVIEW_STATUSES: HumanReviewStatus[] = [
+  'Not reviewed', 'Approved', 'Rejected',
+  'Needs discussion', 'Keep for later', 'Sensitive', 'Do not contact',
+]
+
+export type AIProcessType =
+  | 'SHMA Scoring'
+  | 'Deep Research'
+  | 'Contact Research'
+  | 'Outreach Drafting'
+  | 'Criteria Structuring'
+
+export type AIProcessStatus =
+  | 'Queued' | 'Running' | 'Completed'
+  | 'Failed' | 'Cancelled' | 'Partially completed'
+
+// ============================================================
+// CUSTOMER KANBAN stages (post-Contact Research)
+// ============================================================
+export type CustomerKanbanStage =
+  | 'Qualified Targets'
+  | 'Contact Identified'
+  | 'Outreach Ready'
+  | 'Outreach Sent'
+  | 'Engaged'
+  | 'Meeting Booked'
+  | 'Discovery Completed'
+  | 'Proposal / Agreement'
+  | 'Signed'
+  | 'Onboarding'
+  | 'Nurture'
+  | 'Disqualified'
+
+export const CUSTOMER_KANBAN_STAGES: CustomerKanbanStage[] = [
+  'Qualified Targets',
+  'Contact Identified',
+  'Outreach Ready',
+  'Outreach Sent',
+  'Engaged',
+  'Meeting Booked',
+  'Discovery Completed',
+  'Proposal / Agreement',
+  'Signed',
+  'Onboarding',
+  'Nurture',
+  'Disqualified',
+]
+
+// Legacy combined stage type (kept for backward compat with existing company cards)
 export type PipelineStage =
   | 'Longlist'
   | 'AI Researched'
   | 'Human Review'
   | 'Qualified Target'
+  | 'Qualified Targets'
   | 'Contact Identified'
+  | 'Outreach Ready'
   | 'Warm Intro / Outreach Ready'
   | 'Outreach Sent'
   | 'Engaged'
@@ -21,9 +107,9 @@ export const PIPELINE_STAGES: PipelineStage[] = [
   'Longlist',
   'AI Researched',
   'Human Review',
-  'Qualified Target',
+  'Qualified Targets',
   'Contact Identified',
-  'Warm Intro / Outreach Ready',
+  'Outreach Ready',
   'Outreach Sent',
   'Engaged',
   'Meeting Booked',

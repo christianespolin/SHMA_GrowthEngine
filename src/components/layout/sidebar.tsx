@@ -7,19 +7,22 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Building2, Kanban, BarChart3,
   Settings, ChevronRight, ChevronDown, Zap, CalendarDays, Crosshair,
-  Sun, Moon, Globe2, Star, MessageSquarePlus, Upload, Users, CheckSquare, ListFilter,
+  Sun, Moon, Globe2, Star, MessageSquarePlus, Upload, Users, CheckSquare,
+  List, Activity,
 } from 'lucide-react'
 
 const primaryNav = [
-  { href: '/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/companies',  label: 'Companies',  icon: Building2 },
-  { href: '/pipeline',   label: 'Kanban',     icon: Kanban },
-  { href: '/outreach',   label: 'Outreach',   icon: MessageSquarePlus },
-  { href: '/meetings',   label: 'Meetings',   icon: CalendarDays },
+  { href: '/dashboard',   label: 'Dashboard',  icon: LayoutDashboard },
+  { href: '/companies',   label: 'Companies',  icon: Building2 },
+  { href: '/pipeline',    label: 'Kanban',     icon: Kanban },
+  { href: '/outreach',    label: 'Outreach',   icon: MessageSquarePlus },
+  { href: '/meetings',    label: 'Meetings',   icon: CalendarDays },
 ]
 
 const extendedNav = [
-  { href: '/long-list/import',            label: 'Long List Import',        icon: Upload },
+  { href: '/bulk-lists',                  label: 'List Process View',       icon: List },
+  { href: '/long-list/import',            label: 'Import Longlist',         icon: Upload },
+  { href: '/ai-runs',                     label: 'AI Run Monitor',          icon: Activity },
   { href: '/discovery',                   label: 'Target Discovery',        icon: Crosshair },
   { href: '/target-universe',             label: 'Target Universe',         icon: Globe2 },
   { href: '/partner-review-lists',        label: 'Partner Reviews',         icon: Users },
