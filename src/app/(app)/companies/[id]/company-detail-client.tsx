@@ -47,7 +47,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
   latestRun?: Record<string, any> | null
   financialProfile?: Record<string, any> | null
 }) {
-  const [tab, setTab] = useState<'overview' | 'fit' | 'research' | 'contacts' | 'outreach' | 'meetings' | 'activity' | 'financial' | 'origination' | 'ownership'>('overview')
+  const [tab, setTab] = useState<'overview' | 'qualification' | 'relationships' | 'activity_outreach' | 'origination'>('overview')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState<string | null>(null)
@@ -153,7 +153,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
 
       if (action === 'research') {
         setLocalBrief(data.sections)
-        setTab('research')
+        setTab('qualification')
       } else if (action === 'score') {
         setLocalCompany(prev => ({
           ...prev,
@@ -165,7 +165,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
           score_breakdown: data.scores,
           score_explanation: data.overall_explanation,
         }))
-        setTab('fit')
+        setTab('qualification')
       } else {
         setAiResult(data)
         if (action === 'linkedin' || action === 'email' || action === 'warm_intro') {
@@ -227,18 +227,10 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
-    { id: 'fit', label: 'SHMA Fit' },
-    { id: 'research', label: 'AI Research' },
-    {
-      id: 'contacts',
-      label: `Contacts (${localContacts.length})${localCompany.decision_maker_identified ? ' ●' : ''}`,
-    },
-    { id: 'outreach', label: `Outreach (${outreach.length})` },
-    { id: 'meetings', label: `Meetings (${meetings.length})` },
-    { id: 'activity', label: 'Activity' },
-    { id: 'financial', label: 'Financial & Funding' },
+    { id: 'qualification', label: 'Qualification' },
+    { id: 'relationships', label: `Relationships${localContacts.length > 0 ? ` (${localContacts.length})` : ''}${localCompany.decision_maker_identified ? ' ●' : ''}` },
+    { id: 'activity_outreach', label: `Activity & Outreach${outreach.length + meetings.length > 0 ? ` (${outreach.length + meetings.length})` : ''}` },
     { id: 'origination', label: 'Origination' },
-    { id: 'ownership', label: 'Ownership & Board' },
   ]
 
   return (
@@ -268,13 +260,13 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
         <Button size="sm" variant="ghost" onClick={() => runAI('score')} loading={aiLoading === 'score'}>
           <Sparkles className="h-3.5 w-3.5" /> Score
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => { setTab('outreach'); runAI('linkedin') }} loading={aiLoading === 'linkedin'}>
+        <Button size="sm" variant="ghost" onClick={() => { setTab('activity_outreach'); runAI('linkedin') }} loading={aiLoading === 'linkedin'}>
           <MessageSquare className="h-3.5 w-3.5" /> LinkedIn
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => { setTab('outreach'); runAI('email') }} loading={aiLoading === 'email'}>
+        <Button size="sm" variant="ghost" onClick={() => { setTab('activity_outreach'); runAI('email') }} loading={aiLoading === 'email'}>
           <Mail className="h-3.5 w-3.5" /> Email
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => { setTab('meetings'); runAI('meeting') }} loading={aiLoading === 'meeting'}>
+        <Button size="sm" variant="ghost" onClick={() => { setTab('activity_outreach'); runAI('meeting') }} loading={aiLoading === 'meeting'}>
           <FileText className="h-3.5 w-3.5" /> Meeting Brief
         </Button>
 
@@ -348,79 +340,100 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
             setEditData={setEditData}
           />
         )}
-        {tab === 'fit' && (
-          <FitTab company={localCompany} />
-        )}
-        {tab === 'research' && (
-          <ResearchTab brief={localBrief} loading={aiLoading === 'research'} onGenerate={() => runAI('research')} />
-        )}
-        {tab === 'contacts' && (
-          <ContactsTabClient
-            companyId={String(localCompany.id)}
-            company={localCompany}
-            initialContacts={localContacts}
-            initialLatestRun={latestRun || null}
-            brief={localBrief}
-            outreach={outreach}
-          />
-        )}
-        {tab === 'outreach' && (
-          <div>
-            {localCompany.sensitivity_status === 'Do not contact' && (
-              <div className="flex items-start gap-2 p-3 mb-4 bg-rose-500/10 border border-rose-500/30 rounded-lg">
-                <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-rose-300">Do Not Contact</p>
-                  <p className="text-xs text-slate-400 mt-0.5">This company is flagged as Do Not Contact. No outreach should be sent.{localCompany.sensitivity_reason ? ` Reason: ${localCompany.sensitivity_reason}` : ''}</p>
-                </div>
-              </div>
-            )}
-            {localCompany.sensitivity_status === 'Sensitive' && (
-              <div className="flex items-start gap-2 p-3 mb-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-amber-300">Sensitive Company</p>
-                  <p className="text-xs text-slate-400 mt-0.5">This company is flagged as Sensitive. Approval required before outreach.{localCompany.sensitivity_reason ? ` Reason: ${localCompany.sensitivity_reason}` : ''}</p>
-                </div>
-              </div>
-            )}
-            <OutreachTab
-              outreach={outreach}
-              aiResult={aiLoading ? null : aiResult}
-              loading={aiLoading === 'linkedin' || aiLoading === 'email'}
-              onGenerate={(channel) => { setAiResult(null); runAI(channel) }}
-              justSaved={outreachJustSaved}
-              hasWarmIntro={localContacts.some(c => c.warm_intro_available)}
-            />
+        {/* QUALIFICATION tab: SHMA Fit + AI Research + Financial */}
+        {tab === 'qualification' && (
+          <div className="space-y-8">
+            <FitTab company={localCompany} />
+            <div className="border-t border-slate-800 pt-6">
+              <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">AI Research Brief</h3>
+              <ResearchTab brief={localBrief} loading={aiLoading === 'research'} onGenerate={() => runAI('research')} />
+            </div>
+            <div className="border-t border-slate-800 pt-6">
+              <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">Financial & Funding</h3>
+              <FinancialTabClient
+                companyId={String(localCompany.id)}
+                company={localCompany}
+                initialProfile={financialProfile || null}
+              />
+            </div>
           </div>
         )}
-        {tab === 'meetings' && (
-          <MeetingsTab
-            meetings={meetings}
-            meetingBrief={aiLoading ? null : (tab === 'meetings' ? aiResult : null)}
-            loading={aiLoading === 'meeting'}
-            onGenerateBrief={() => runAI('meeting')}
-            onAdd={() => setShowMeetingModal(true)}
-          />
+
+        {/* RELATIONSHIPS tab: Contacts + Ownership */}
+        {tab === 'relationships' && (
+          <div className="space-y-8">
+            <ContactsTabClient
+              companyId={String(localCompany.id)}
+              company={localCompany}
+              initialContacts={localContacts}
+              initialLatestRun={latestRun || null}
+              brief={localBrief}
+              outreach={outreach}
+            />
+            <div className="border-t border-slate-800 pt-6">
+              <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">Ownership & Board</h3>
+              <OwnershipTab
+                company={localCompany}
+                onSave={(updates) => setLocalCompany(c => ({ ...c, ...updates }))}
+              />
+            </div>
+          </div>
         )}
-        {tab === 'activity' && (
-          <ActivityTab activity={localActivity} onLogOutreach={() => setShowOutreachModal(true)} />
+
+        {/* ACTIVITY & OUTREACH tab */}
+        {tab === 'activity_outreach' && (
+          <div className="space-y-8">
+            {/* Outreach */}
+            <div>
+              <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">Outreach</h3>
+              {localCompany.sensitivity_status === 'Do not contact' && (
+                <div className="flex items-start gap-2 p-3 mb-4 bg-rose-500/10 border border-rose-500/30 rounded-lg">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-rose-300">Do Not Contact</p>
+                    <p className="text-xs text-slate-400 mt-0.5">This company is flagged as Do Not Contact. No outreach should be sent.{localCompany.sensitivity_reason ? ` Reason: ${localCompany.sensitivity_reason}` : ''}</p>
+                  </div>
+                </div>
+              )}
+              {localCompany.sensitivity_status === 'Sensitive' && (
+                <div className="flex items-start gap-2 p-3 mb-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-300">Sensitive Company</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Sensitive — approval required before outreach.{localCompany.sensitivity_reason ? ` Reason: ${localCompany.sensitivity_reason}` : ''}</p>
+                  </div>
+                </div>
+              )}
+              <OutreachTab
+                outreach={outreach}
+                aiResult={aiLoading ? null : aiResult}
+                loading={aiLoading === 'linkedin' || aiLoading === 'email'}
+                onGenerate={(channel) => { setAiResult(null); runAI(channel) }}
+                justSaved={outreachJustSaved}
+                hasWarmIntro={localContacts.some(c => c.warm_intro_available)}
+              />
+            </div>
+            {/* Meetings */}
+            <div className="border-t border-slate-800 pt-6">
+              <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">Meetings</h3>
+              <MeetingsTab
+                meetings={meetings}
+                meetingBrief={aiLoading ? null : (tab === 'activity_outreach' ? aiResult : null)}
+                loading={aiLoading === 'meeting'}
+                onGenerateBrief={() => runAI('meeting')}
+                onAdd={() => setShowMeetingModal(true)}
+              />
+            </div>
+            {/* Activity log */}
+            <div className="border-t border-slate-800 pt-6">
+              <h3 className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-4">Activity Log</h3>
+              <ActivityTab activity={localActivity} onLogOutreach={() => setShowOutreachModal(true)} />
+            </div>
+          </div>
         )}
-        {tab === 'financial' && (
-          <FinancialTabClient
-            companyId={String(localCompany.id)}
-            company={localCompany}
-            initialProfile={financialProfile || null}
-          />
-        )}
+
         {tab === 'origination' && (
           <OriginationTab companyId={String(localCompany.id)} companyName={String(localCompany.name)} companyStage={String(localCompany.stage)} />
-        )}
-        {tab === 'ownership' && (
-          <OwnershipTab
-            company={localCompany}
-            onSave={(updates) => setLocalCompany(c => ({ ...c, ...updates }))}
-          />
         )}
       </div>
 
