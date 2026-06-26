@@ -15,10 +15,8 @@ import {
 } from 'lucide-react'
 
 const STAGE_COLORS: Record<string, string> = {
-  'Longlist': 'border-slate-600',
-  'AI Researched': 'border-indigo-500/50',
-  'Human Review': 'border-violet-500/50',
   'Qualified Target': 'border-cyan-500/50',
+  'Qualified Targets': 'border-cyan-500/50',
   'Contact Identified': 'border-sky-500/50',
   'Warm Intro / Outreach Ready': 'border-blue-500/50',
   'Outreach Sent': 'border-amber-500/50',

@@ -104,9 +104,6 @@ export type PipelineStage =
   | 'Disqualified'
 
 export const PIPELINE_STAGES: PipelineStage[] = [
-  'Longlist',
-  'AI Researched',
-  'Human Review',
   'Qualified Targets',
   'Contact Identified',
   'Outreach Ready',
