@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
         created_by: user.id,
         owner_id: user.id,
         company_count: importedIds.length,
-        status: 'Active',
+        status: 'Ready',
       }).select().single()
 
       if (bulkList) {
