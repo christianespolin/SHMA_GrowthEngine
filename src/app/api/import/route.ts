@@ -193,6 +193,39 @@ export async function POST(request: NextRequest) {
       imported_by: user.id,
     })
 
+    // Create a bulk list for this import batch
+    if (importedIds.length > 0) {
+      const listName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ').trim() || 'Imported Longlist'
+
+      const { data: bulkList } = await supabase.from('bulk_lists').insert({
+        name: listName,
+        description: `Imported from ${file.name} — ${imported} companies`,
+        category: 'Longlist',
+        source_type: 'Excel Import',
+        source_name: file.name,
+        created_by: user.id,
+        owner_id: user.id,
+        company_count: importedIds.length,
+        status: 'Active',
+      }).select().single()
+
+      if (bulkList) {
+        const memberRows = importedIds.map(cid => ({
+          bulk_list_id: bulkList.id,
+          company_id: cid,
+          list_status: 'Active',
+        }))
+
+        // Insert in chunks of 100 to avoid request size limits
+        for (let i = 0; i < memberRows.length; i += 100) {
+          await supabase.from('bulk_list_companies').upsert(
+            memberRows.slice(i, i + 100),
+            { onConflict: 'bulk_list_id,company_id', ignoreDuplicates: true }
+          )
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       imported,
