@@ -44,6 +44,10 @@ function StatCard({ label, value, icon, href, variant = 'default' }: StatCardPro
 
 interface DashboardClientProps {
   stats: Record<string, number>
+  bulkStats: Record<string, number>
+  dnc: number
+  sensitive: number
+  missingOwner: number
   stageBreakdown: { stage: string; count: number }[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   upcomingActions: Record<string, any>[]
@@ -83,7 +87,7 @@ function activityTypeBadgeClass(type: string): string {
 
 const DASH_ANALYSIS_KEY = 'shma_pipeline_analysis' // shared with Reports page
 
-export function DashboardClient({ stats, stageBreakdown, upcomingActions, recentlyActive, upcomingMeetings, recentActivity }: DashboardClientProps) {
+export function DashboardClient({ stats, bulkStats, dnc, sensitive, missingOwner, stageBreakdown, upcomingActions, recentlyActive, upcomingMeetings, recentActivity }: DashboardClientProps) {
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
   const [aiGeneratedAt, setAiGeneratedAt] = useState<string | null>(null)
   const [loadingAI, setLoadingAI] = useState(false)
@@ -120,32 +124,43 @@ export function DashboardClient({ stats, stageBreakdown, upcomingActions, recent
 
   return (
     <div className="flex-1 p-5 space-y-5 overflow-y-auto">
-      {/* Primary heroes — Target Universe funnel + Active sales */}
+      {/* Bulk process funnel */}
       <div>
-        <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Target Funnel</div>
-        <div className="grid grid-cols-4 gap-3 mb-3">
-          <StatCard label="Target Universe" value={stats.target_universe || 0} icon={<Globe2 className="h-5 w-5" />} href="/target-universe" variant="default" />
-          <StatCard label="Long List / Screened" value={stats.long_list || 0} icon={<Layers className="h-5 w-5" />} href="/target-universe" variant="info" />
-          <StatCard label="AI Qualified" value={stats.ai_qualified || 0} icon={<FlaskConical className="h-5 w-5" />} href="/target-universe" variant="info" />
-          <StatCard label="Validated Targets" value={stats.validated_targets || 0} icon={<ShieldCheck className="h-5 w-5" />} href="/target-universe" variant="info" />
+        <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">List Process View</div>
+        <div className="grid grid-cols-5 gap-2 mb-1">
+          <StatCard label="Longlist" value={bulkStats.longlist || 0} icon={<Layers className="h-5 w-5" />} href="/bulk-lists" variant="default" />
+          <StatCard label="AI Researched" value={bulkStats.ai_researched || 0} icon={<FlaskConical className="h-5 w-5" />} href="/bulk-lists" variant="info" />
+          <StatCard label="Ready for Deep Research" value={bulkStats.ready_for_deep_research || 0} icon={<FlaskConical className="h-5 w-5" />} href="/bulk-lists" variant="info" />
+          <StatCard label="Ready for Human Review" value={bulkStats.ready_for_human_review || 0} icon={<ShieldCheck className="h-5 w-5" />} href="/bulk-lists" variant="info" />
+          <StatCard label="Ready for Contact Research" value={bulkStats.ready_for_contact_research || 0} icon={<Star className="h-5 w-5" />} href="/bulk-lists" variant="success" />
         </div>
-        <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Active Sales</div>
+      </div>
+
+      {/* Primary heroes — Active sales */}
+      <div>
+        <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Customer Kanban</div>
         <div className="grid grid-cols-4 gap-3">
-          <StatCard label="Qualified Targets" value={stats.qualified_targets || 0} icon={<Star className="h-5 w-5" />} href="/companies" variant="success" />
+          <StatCard label="Qualified Targets" value={stats.qualified_targets || 0} icon={<Star className="h-5 w-5" />} href="/pipeline" variant="success" />
           <StatCard label="Engaged" value={stats.engaged || 0} icon={<MessageSquare className="h-5 w-5" />} href="/pipeline" variant="success" />
-          <StatCard label="Meetings Booked" value={stats.meetings_booked || 0} icon={<Calendar className="h-5 w-5" />} href="/companies?stage=Meeting+Booked" variant="success" />
-          <StatCard label="Signed Clients" value={stats.signed_clients || 0} icon={<TrendingUp className="h-5 w-5" />} href="/companies?stage=Signed" variant="success" />
+          <StatCard label="Meetings Booked" value={stats.meetings_booked || 0} icon={<Calendar className="h-5 w-5" />} href="/pipeline" variant="success" />
+          <StatCard label="Signed Clients" value={stats.signed_clients || 0} icon={<TrendingUp className="h-5 w-5" />} href="/pipeline" variant="success" />
         </div>
       </div>
 
       {/* Secondary heroes */}
       <div>
         <div className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Attention Required</div>
-        <div className="grid grid-cols-4 gap-3">
-          <StatCard label="Outreach Ready" value={stats.outreach_ready || 0} icon={<Users className="h-5 w-5" />} href="/companies?stage=Warm+Intro+%2F+Outreach+Ready" />
-          <StatCard label="Missing Contact Data" value={stats.missing_contact_data || 0} icon={<AlertCircle className="h-5 w-5" />} href="/companies" variant={stats.missing_contact_data > 0 ? 'warning' : 'default'} />
+        <div className="grid grid-cols-4 gap-3 mb-2">
           <StatCard label="Stale Opportunities" value={stats.stale_opportunities || 0} icon={<Clock className="h-5 w-5" />} href="/companies" variant={stats.stale_opportunities > 5 ? 'warning' : 'default'} />
           <StatCard label="Origination Not Approved" value={stats.origination_not_approved || 0} icon={<AlertTriangle className="h-5 w-5" />} href="/companies" variant={stats.origination_not_approved > 0 ? 'danger' : 'default'} />
+          <StatCard label="Missing Owner" value={missingOwner} icon={<Users className="h-5 w-5" />} href="/companies" variant={missingOwner > 0 ? 'warning' : 'default'} />
+          <StatCard label="AI Runs Failed" value={bulkStats.ai_runs_failed || 0} icon={<AlertCircle className="h-5 w-5" />} href="/ai-runs" variant={bulkStats.ai_runs_failed > 0 ? 'danger' : 'default'} />
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          <StatCard label="Do Not Contact" value={dnc} icon={<AlertTriangle className="h-5 w-5" />} href="/companies" variant={dnc > 0 ? 'warning' : 'default'} />
+          <StatCard label="Sensitive Companies" value={sensitive} icon={<ShieldCheck className="h-5 w-5" />} href="/companies" variant={sensitive > 0 ? 'warning' : 'default'} />
+          <StatCard label="Missing Contact Data" value={stats.missing_contact_data || 0} icon={<AlertCircle className="h-5 w-5" />} href="/companies" variant={stats.missing_contact_data > 0 ? 'warning' : 'default'} />
+          <StatCard label="Outreach Ready" value={stats.outreach_ready || 0} icon={<Users className="h-5 w-5" />} href="/pipeline" />
         </div>
       </div>
 

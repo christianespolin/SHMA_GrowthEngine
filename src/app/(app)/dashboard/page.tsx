@@ -121,11 +121,48 @@ export default async function DashboardPage() {
     .order('created_at', { ascending: false })
     .limit(10)
 
+  // Bulk list funnel counts (List Process View)
+  const { data: bulkLists } = await supabase
+    .from('bulk_lists')
+    .select('category, company_count, status')
+    .neq('category', 'Archived')
+
+  const blLists = bulkLists || []
+  const blCount = (cat: string) =>
+    blLists.filter(l => l.category === cat).reduce((s, l) => s + (l.company_count || 0), 0)
+
+  const bulkStats = {
+    longlist: blCount('Longlist'),
+    ai_researched: blCount('AI Researched') + blCount('AI Researched, Pending'),
+    ready_for_deep_research: blCount('Ready for AI Deep Research'),
+    ready_for_human_review: blCount('Ready for Human Review'),
+    ready_for_contact_research: blCount('Ready for Contact Research'),
+    // Warnings
+    ai_runs_failed: 0, // pulled from ai_process_runs below
+  }
+
+  const { data: failedRuns } = await supabase
+    .from('ai_process_runs')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'Failed')
+
+  bulkStats.ai_runs_failed = (failedRuns as unknown as { count: number } | null)?.count ?? 0
+
+  const dnc = all.filter(c => c.sensitivity_status === 'Do not contact').length
+  const sensitive = all.filter(c => c.sensitivity_status === 'Sensitive').length
+  const missingOwner = all.filter(c =>
+    !c.internal_owner && !['Disqualified', 'Nurture'].includes(c.stage)
+  ).length
+
   return (
     <>
       <Header title="Dashboard" subtitle="Commercial operating system — pipeline, targets and origination" />
       <DashboardClient
         stats={stats}
+        bulkStats={bulkStats}
+        dnc={dnc}
+        sensitive={sensitive}
+        missingOwner={missingOwner}
         stageBreakdown={stageBreakdown}
         upcomingActions={upcomingActions}
         recentlyActive={recentlyActive}

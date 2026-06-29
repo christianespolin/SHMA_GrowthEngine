@@ -7,11 +7,12 @@ import { Modal } from '@/components/ui/modal'
 import { ScoreBar, ScoreBadge, PriorityBadge } from '@/components/ui/score-display'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatDateRelative, cn } from '@/lib/utils'
-import { PIPELINE_STAGES, SEGMENTS, NEXT_ACTION_TYPES } from '@/lib/types'
+import { PIPELINE_STAGES, SEGMENTS, NEXT_ACTION_TYPES, ROUTE_TO_MARKET_OPTIONS, ROUTE_TO_MARKET_COLORS, type RouteToMarket } from '@/lib/types'
 import { ContactsTabClient } from './contacts-tab-client'
 import { FinancialTabClient } from './financial-tab-client'
 import { OriginationTab } from './origination-tab'
 import { OwnershipTab } from './ownership-tab'
+import { CommercialAngleTab } from './commercial-angle-tab'
 import { NextActionPanel } from './next-action-panel'
 import { ConfirmDeleteModal } from '@/components/ui/confirm-delete-modal'
 import {
@@ -47,7 +48,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
   latestRun?: Record<string, any> | null
   financialProfile?: Record<string, any> | null
 }) {
-  const [tab, setTab] = useState<'overview' | 'qualification' | 'relationships' | 'activity_outreach' | 'origination'>('overview')
+  const [tab, setTab] = useState<'overview' | 'qualification' | 'commercial' | 'relationships' | 'activity_outreach' | 'origination'>('overview')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState<string | null>(null)
@@ -226,9 +227,10 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
   }
 
   const tabs = [
-    { id: 'overview', label: 'Overview' },
+    { id: 'overview', label: 'Brief' },
     { id: 'qualification', label: 'Qualification' },
-    { id: 'relationships', label: `Relationships${localContacts.length > 0 ? ` (${localContacts.length})` : ''}${localCompany.decision_maker_identified ? ' ●' : ''}` },
+    { id: 'commercial', label: 'Commercial Angle' },
+    { id: 'relationships', label: `Contacts & Relationships${localContacts.length > 0 ? ` (${localContacts.length})` : ''}${localCompany.decision_maker_identified ? ' ●' : ''}` },
     { id: 'activity_outreach', label: `Activity & Outreach${outreach.length + meetings.length > 0 ? ` (${outreach.length + meetings.length})` : ''}` },
     { id: 'origination', label: 'Origination' },
   ]
@@ -241,6 +243,13 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
         <ScoreBadge score={localCompany.shma_fit_score as number | null} label="Fit" />
         <ScoreBadge score={localCompany.opportunity_score as number | null} label="Opp" />
         <ScoreBadge score={localCompany.closing_score as number | null} label="Close" />
+        {localCompany.route_to_market && localCompany.route_to_market !== 'Unknown' && (
+          <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+            ROUTE_TO_MARKET_COLORS[localCompany.route_to_market as RouteToMarket] ?? 'bg-slate-700 text-slate-400 border-slate-600'
+          }`}>
+            {String(localCompany.route_to_market)}
+          </span>
+        )}
         {localCompany.sensitivity_status && localCompany.sensitivity_status !== 'Normal' && (
           <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
             localCompany.sensitivity_status === 'Do not contact' ? 'bg-rose-500/15 text-rose-400 border-rose-500/30' :
@@ -359,6 +368,15 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
           </div>
         )}
 
+        {/* COMMERCIAL ANGLE tab */}
+        {tab === 'commercial' && (
+          <CommercialAngleTab
+            company={localCompany}
+            brief={localBrief}
+            onSave={(updates) => setLocalCompany(c => ({ ...c, ...updates }))}
+          />
+        )}
+
         {/* RELATIONSHIPS tab: Contacts + Ownership */}
         {tab === 'relationships' && (
           <div className="space-y-8">
@@ -411,6 +429,7 @@ export function CompanyDetailClient({ company, contacts, brief, outreach, meetin
                 onGenerate={(channel) => { setAiResult(null); runAI(channel) }}
                 justSaved={outreachJustSaved}
                 hasWarmIntro={localContacts.some(c => c.warm_intro_available)}
+                sensitivityStatus={localCompany.sensitivity_status as string | null}
               />
             </div>
             {/* Meetings */}
@@ -768,13 +787,14 @@ function parseOutreachContent(content: string): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved, hasWarmIntro }: {
+function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved, hasWarmIntro, sensitivityStatus }: {
   outreach: Record<string, any>[]
   aiResult: Record<string, string> | null
   loading: boolean
   onGenerate: (channel: string) => void
   justSaved: boolean
   hasWarmIntro?: boolean
+  sensitivityStatus?: string | null
 }) {
   const [copied, setCopied] = useState<string | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -790,6 +810,21 @@ function OutreachTab({ outreach, aiResult, loading, onGenerate, justSaved, hasWa
   }
 
   const markSent = async (id: string) => {
+    // Pre-send validation
+    if (sensitivityStatus === 'Do not contact') {
+      alert('Cannot send — this company is flagged as Do Not Contact.')
+      return
+    }
+    if (sensitivityStatus === 'Sensitive') {
+      const confirmed = window.confirm('This company is flagged as Sensitive. Has this outreach been explicitly approved by Stian?')
+      if (!confirmed) return
+    }
+    const msg = localOutreach.find(m => String(m.id) === id)
+    if (msg && msg.approval_status !== 'Approved') {
+      alert('Cannot send — message must be approved before sending.')
+      return
+    }
+
     setMarking(id + '_sent')
     try {
       const res = await fetch(`/api/outreach/${id}`, {

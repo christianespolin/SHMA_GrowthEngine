@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
-import { PIPELINE_STAGES } from '@/lib/types'
+import { PIPELINE_STAGES, ROUTE_TO_MARKET_COLORS, type RouteToMarket } from '@/lib/types'
 import { ScoreBadge, PriorityBadge } from '@/components/ui/score-display'
 import { Badge } from '@/components/ui/badge'
 import { Modal } from '@/components/ui/modal'
@@ -17,6 +17,7 @@ import {
 const STAGE_COLORS: Record<string, string> = {
   'Qualified Target': 'border-cyan-500/50',
   'Qualified Targets': 'border-cyan-500/50',
+  'Partner / Warm Intro Review': 'border-emerald-500/50',
   'Contact Identified': 'border-sky-500/50',
   'Warm Intro / Outreach Ready': 'border-blue-500/50',
   'Outreach Sent': 'border-amber-500/50',
@@ -291,6 +292,15 @@ function KanbanCard({ company, showOrigWarn }: { company: Record<string, any>; s
 
       {company.segment && (
         <div className="text-xs text-slate-600 truncate">{String(company.segment)}</div>
+      )}
+
+      {company.route_to_market && company.route_to_market !== 'Unknown' && (
+        <span className={cn(
+          'inline-block text-xs px-1.5 py-0.5 rounded border font-medium leading-tight truncate max-w-full',
+          ROUTE_TO_MARKET_COLORS[company.route_to_market as RouteToMarket] ?? 'bg-slate-700 text-slate-400 border-slate-600'
+        )}>
+          {String(company.route_to_market)}
+        </span>
       )}
 
       <div className="flex items-center gap-1 flex-wrap">

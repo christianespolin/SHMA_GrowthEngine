@@ -56,6 +56,7 @@ export type AIProcessStatus =
 // ============================================================
 export type CustomerKanbanStage =
   | 'Qualified Targets'
+  | 'Partner / Warm Intro Review'
   | 'Contact Identified'
   | 'Outreach Ready'
   | 'Outreach Sent'
@@ -70,6 +71,7 @@ export type CustomerKanbanStage =
 
 export const CUSTOMER_KANBAN_STAGES: CustomerKanbanStage[] = [
   'Qualified Targets',
+  'Partner / Warm Intro Review',
   'Contact Identified',
   'Outreach Ready',
   'Outreach Sent',
@@ -83,6 +85,44 @@ export const CUSTOMER_KANBAN_STAGES: CustomerKanbanStage[] = [
   'Disqualified',
 ]
 
+export type RouteToMarket =
+  | 'Warm intro via partner'
+  | 'Chetwode / Simon route'
+  | 'Board / shareholder route'
+  | 'Existing SHMA network'
+  | 'Sofie / Henrik outreach'
+  | 'Founder / CEO direct'
+  | 'CFO / funding angle'
+  | 'Service / aftermarket angle'
+  | 'Nurture'
+  | 'Unknown'
+
+export const ROUTE_TO_MARKET_OPTIONS: RouteToMarket[] = [
+  'Warm intro via partner',
+  'Chetwode / Simon route',
+  'Board / shareholder route',
+  'Existing SHMA network',
+  'Sofie / Henrik outreach',
+  'Founder / CEO direct',
+  'CFO / funding angle',
+  'Service / aftermarket angle',
+  'Nurture',
+  'Unknown',
+]
+
+export const ROUTE_TO_MARKET_COLORS: Record<RouteToMarket, string> = {
+  'Warm intro via partner':     'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
+  'Chetwode / Simon route':     'bg-violet-500/15 text-violet-400 border-violet-500/25',
+  'Board / shareholder route':  'bg-purple-500/15 text-purple-400 border-purple-500/25',
+  'Existing SHMA network':      'bg-cyan-500/15 text-cyan-400 border-cyan-500/25',
+  'Sofie / Henrik outreach':    'bg-sky-500/15 text-sky-400 border-sky-500/25',
+  'Founder / CEO direct':       'bg-amber-500/15 text-amber-400 border-amber-500/25',
+  'CFO / funding angle':        'bg-orange-500/15 text-orange-400 border-orange-500/25',
+  'Service / aftermarket angle':'bg-teal-500/15 text-teal-400 border-teal-500/25',
+  'Nurture':                    'bg-slate-600/50 text-slate-400 border-slate-600/50',
+  'Unknown':                    'bg-slate-700/50 text-slate-500 border-slate-700/50',
+}
+
 // Legacy combined stage type (kept for backward compat with existing company cards)
 export type PipelineStage =
   | 'Longlist'
@@ -90,6 +130,7 @@ export type PipelineStage =
   | 'Human Review'
   | 'Qualified Target'
   | 'Qualified Targets'
+  | 'Partner / Warm Intro Review'
   | 'Contact Identified'
   | 'Outreach Ready'
   | 'Warm Intro / Outreach Ready'
@@ -105,6 +146,7 @@ export type PipelineStage =
 
 export const PIPELINE_STAGES: PipelineStage[] = [
   'Qualified Targets',
+  'Partner / Warm Intro Review',
   'Contact Identified',
   'Outreach Ready',
   'Outreach Sent',
